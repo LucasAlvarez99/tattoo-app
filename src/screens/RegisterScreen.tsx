@@ -14,44 +14,60 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { supabase } from '../lib/supabaseClient';
 
-type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
+type RegisterScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 type Props = {
-  navigation: LoginScreenNavigationProp;
+  navigation: RegisterScreenNavigationProp;
 };
 
-export default function LoginScreen({ navigation }: Props) {
+export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
+  async function handleRegister() {
+    if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Por favor completá todos los campos');
       return;
     }
 
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Las contraseñas no coinciden');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ 
-      email: email.trim(), 
-      password 
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
     });
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error de inicio de sesión', error.message);
+      Alert.alert('Error de registro', error.message);
+    } else {
+      Alert.alert(
+        '¡Registro exitoso!',
+        'Por favor verificá tu email para confirmar tu cuenta.',
+        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+      );
     }
-    // No necesitamos navegar manualmente, el listener en App.tsx lo hará
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Tattoo App</Text>
-        <Text style={styles.subtitle}>Iniciá sesión para continuar</Text>
+        <Text style={styles.title}>Crear Cuenta</Text>
+        <Text style={styles.subtitle}>Registrate para empezar</Text>
 
         <TextInput
           placeholder="Email"
@@ -74,24 +90,34 @@ export default function LoginScreen({ navigation }: Props) {
           editable={!loading}
         />
 
+        <TextInput
+          placeholder="Confirmar contraseña"
+          placeholderTextColor="#999"
+          secureTextEntry
+          style={styles.input}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          editable={!loading}
+        />
+
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
+          onPress={handleRegister}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Iniciar sesión</Text>
+            <Text style={styles.buttonText}>Crear cuenta</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate('Register')}
+          onPress={() => navigation.navigate('Login')}
           disabled={loading}
         >
           <Text style={styles.linkText}>
-            ¿No tenés cuenta? <Text style={styles.linkBold}>Registrate</Text>
+            ¿Ya tenés cuenta? <Text style={styles.linkBold}>Iniciá sesión</Text>
           </Text>
         </TouchableOpacity>
       </View>

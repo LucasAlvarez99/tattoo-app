@@ -1,22 +1,25 @@
-// src/lib/supabaseClient.ts
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
+import 'react-native-url-polyfill/auto';
+import 'react-native-get-random-values';
 
-// 🔹 Reemplazá con tus credenciales reales
-const SUPABASE_URL = 'https://TU_PROYECTO.supabase.co'
-const SUPABASE_ANON_KEY = 'TU_ANON_KEY'
+// Leer variables de entorno
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-// 🚫 Importante: deshabilitamos Realtime (ws) forzando el uso de fetch
+// Validar que las variables existan
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    '⚠️ Falta configurar EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY en el archivo .env'
+  );
+}
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  global: {
-    fetch: (...args) => fetch(...args),
-  },
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
   },
   realtime: {
-    // ❌ No usar ws en Expo
-    connect: false,
+    connect: false, // ❌ Desactivar WebSockets para Expo Go
   },
-})
+});

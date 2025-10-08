@@ -10,17 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types/navigation';
-import { supabase } from '../lib/supabaseClient';
+import { mockAuth } from '../lib/mockAuth';
 
-type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
-
-type Props = {
-  navigation: LoginScreenNavigationProp;
-};
-
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,16 +24,12 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ 
-      email: email.trim(), 
-      password 
-    });
+    const { error } = await mockAuth.login(email.trim(), password);
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error de inicio de sesión', error.message);
+      Alert.alert('Error de inicio de sesión', error);
     }
-    // No necesitamos navegar manualmente, el listener en App.tsx lo hará
   }
 
   return (
@@ -50,16 +38,21 @@ export default function LoginScreen({ navigation }: Props) {
       style={styles.container}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Tattoo App</Text>
+        <Text style={styles.title}>Tattoo Manager</Text>
         <Text style={styles.subtitle}>Iniciá sesión para continuar</Text>
 
+        <View style={styles.devInfo}>
+          <Text style={styles.devInfoText}>🔧 Modo desarrollo</Text>
+          <Text style={styles.devInfoSmall}>Usuario: admin</Text>
+          <Text style={styles.devInfoSmall}>Contraseña: admin</Text>
+        </View>
+
         <TextInput
-          placeholder="Email"
+          placeholder="Usuario o Email"
           placeholderTextColor="#999"
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          keyboardType="email-address"
           autoCapitalize="none"
           editable={!loading}
         />
@@ -87,12 +80,14 @@ export default function LoginScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate('Register')}
+          style={styles.quickLoginButton}
+          onPress={() => {
+            setEmail('admin');
+            setPassword('admin');
+          }}
           disabled={loading}
         >
-          <Text style={styles.linkText}>
-            ¿No tenés cuenta? <Text style={styles.linkBold}>Registrate</Text>
-          </Text>
+          <Text style={styles.quickLoginText}>⚡ Autocompletar credenciales</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -119,8 +114,28 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
     color: '#666',
+  },
+  devInfo: {
+    backgroundColor: '#f0f9ff',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+  },
+  devInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0369a1',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  devInfoSmall: {
+    fontSize: 12,
+    color: '#0369a1',
+    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
@@ -147,13 +162,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  linkText: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
+  quickLoginButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
   },
-  linkBold: {
-    color: '#000',
-    fontWeight: '600',
+  quickLoginText: {
+    textAlign: 'center',
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

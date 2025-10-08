@@ -5,10 +5,8 @@ import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './src/types/navigation';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import CalendarScreen from './src/screens/CalendarScreen';
-import { supabase } from './src/lib/supabaseClient';
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import MainTabs from './src/navigation/MainTabs';
+import { mockAuth } from './src/lib/mockAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -16,25 +14,22 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Verificar si hay una sesión activa al iniciar la app
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-    });
+    // Inicializar mock auth
+    mockAuth.initialize();
+    setIsAuthenticated(mockAuth.isAuthenticated());
 
     // Escuchar cambios en la autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
-        setIsAuthenticated(!!session);
-      }
-    );
+    const unsubscribe = mockAuth.onAuthStateChange((user) => {
+      setIsAuthenticated(!!user);
+    });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   // Mostrar loader mientras se verifica la sesión
   if (isAuthenticated === null) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#000" />
       </View>
     );
@@ -51,10 +46,7 @@ export default function App() {
           </>
         ) : (
           // Stack de usuario autenticado
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="Calendar" component={CalendarScreen} />
-          </>
+          <Stack.Screen name="MainTabs" component={MainTabs} />
         )}
       </Stack.Navigator>
     </NavigationContainer>

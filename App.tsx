@@ -6,6 +6,9 @@ import { RootStackParamList } from './src/types/navigation';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import MainTabs from './src/navigation/MainTabs';
+import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
+import NewClientScreen from './src/screens/NewClientScreen';
+import QuoteScreen from './src/screens/QuoteScreen';
 import { mockAuth } from './src/lib/mockAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -14,11 +17,9 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Inicializar mock auth
     mockAuth.initialize();
     setIsAuthenticated(mockAuth.isAuthenticated());
 
-    // Escuchar cambios en la autenticación
     const unsubscribe = mockAuth.onAuthStateChange((user) => {
       setIsAuthenticated(!!user);
     });
@@ -26,7 +27,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Mostrar loader mientras se verifica la sesión
   if (isAuthenticated === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
@@ -37,16 +37,52 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator>
         {!isAuthenticated ? (
-          // Stack de autenticación
           <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen 
+              name="Login" 
+              component={LoginScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Register" 
+              component={RegisterScreen}
+              options={{ headerShown: false }}
+            />
           </>
         ) : (
-          // Stack de usuario autenticado
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <>
+            <Stack.Screen 
+              name="MainTabs" 
+              component={MainTabs}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="NewAppointment" 
+              component={NewAppointmentScreen}
+              options={{ 
+                title: 'Nueva Cita',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen 
+              name="NewClient" 
+              component={NewClientScreen}
+              options={{ 
+                title: 'Nuevo Cliente',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen 
+              name="QuoteScreen" 
+              component={QuoteScreen}
+              options={{ 
+                title: 'Cotizar Tatuaje',
+                presentation: 'modal',
+              }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

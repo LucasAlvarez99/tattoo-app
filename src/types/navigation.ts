@@ -1,16 +1,15 @@
-// Tipos de navegación principal
+import { NavigatorScreenParams } from '@react-navigation/native';
+
+// Tipos para el Stack principal
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  MainTabs: undefined;
-  AppointmentDetail: { appointmentId: string };
-  ClientDetail: { clientId: string };
-  NewAppointment: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList>;
+  NewAppointment: { clientId?: string };
   NewClient: undefined;
   QuoteScreen: undefined;
-  PriceList: undefined;
-  MessageTemplates: undefined;
-  Subscription: undefined;
+  AppointmentDetail: { appointmentId: string };
+  ClientDetail: { clientId: string };
 };
 
 // Tipos para el Tab Navigator

@@ -7,10 +7,23 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
 import { mockAppointments } from '../lib/mockData';
 
-export default function HomeScreen() {
+type HomeScreenNavigationProp = CompositeNavigationProp
+  BottomTabNavigationProp<TabParamList, 'HomeTab'>,
+  NativeStackNavigationProp<RootStackParamList>
+;
+
+type Props = {
+  navigation: HomeScreenNavigationProp;
+};
+
+export default function HomeScreen({ navigation }: Props) {
   const user = mockAuth.getUser();
   
   const today = new Date();
@@ -33,107 +46,133 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scroll}>
+      <ScrollView 
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header compacto */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hola, {user?.fullName} 👋</Text>
-            <Text style={styles.studioName}>{user?.studioName}</Text>
+            <Text style={styles.greeting} numberOfLines={1}>
+              Hola, {user?.fullName?.split(' ')[0] || 'Usuario'} 👋
+            </Text>
+            <Text style={styles.studioName} numberOfLines={1}>
+              {user?.studioName}
+            </Text>
           </View>
         </View>
 
+        {/* Estado de suscripción */}
         {user?.subscriptionStatus === 'trial' && (
           <View style={styles.trialBanner}>
-            <Text style={styles.trialTitle}>🎉 Período de prueba</Text>
+            <Text style={styles.trialTitle}>🎉 Prueba gratis</Text>
             <Text style={styles.trialText}>
-              Te quedan {daysUntilTrialEnd} días gratis
+              {daysUntilTrialEnd} días restantes
             </Text>
           </View>
         )}
 
+        {/* Estadísticas compactas */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{todayAppointments.length}</Text>
-            <Text style={styles.statLabel}>Citas hoy</Text>
+            <Text style={styles.statLabel}>Hoy</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{mockAppointments.length}</Text>
-            <Text style={styles.statLabel}>Total pendientes</Text>
+            <Text style={styles.statLabel}>Pendientes</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              ${mockAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0).toLocaleString()}
+              ${Math.floor(mockAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0) / 1000)}k
             </Text>
-            <Text style={styles.statLabel}>Ingresos estimados</Text>
+            <Text style={styles.statLabel}>Estimado</Text>
           </View>
         </View>
 
+        {/* Citas de hoy */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Agenda de hoy</Text>
+          <Text style={styles.sectionTitle}>Hoy</Text>
           {todayAppointments.length > 0 ? (
             todayAppointments.map(apt => (
               <View key={apt.id} style={styles.appointmentCard}>
-                <View style={styles.appointmentTime}>
-                  <Text style={styles.appointmentTimeText}>
-                    {new Date(apt.date).toLocaleTimeString('es-AR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </Text>
-                </View>
+                <Text style={styles.timeText}>
+                  {new Date(apt.date).toLocaleTimeString('es-AR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </Text>
                 <View style={styles.appointmentInfo}>
-                  <Text style={styles.appointmentClient}>{apt.clientName}</Text>
-                  <Text style={styles.appointmentNotes}>{apt.notes}</Text>
-                  <Text style={styles.appointmentPrice}>${apt.price?.toLocaleString()}</Text>
+                  <Text style={styles.clientName} numberOfLines={1}>
+                    {apt.clientName}
+                  </Text>
+                  <Text style={styles.price}>${apt.price?.toLocaleString()}</Text>
                 </View>
-                <View style={[styles.statusBadge, apt.status === 'confirmed' ? styles.statusconfirmed : styles.statuspending]}>
-                  <Text style={styles.statusText}>
+                <View style={[styles.badge, apt.status === 'confirmed' ? styles.badgeConfirmed : styles.badgePending]}>
+                  <Text style={styles.badgeText}>
                     {apt.status === 'confirmed' ? '✓' : '○'}
                   </Text>
                 </View>
               </View>
             ))
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No tenés citas para hoy</Text>
-            </View>
+            <Text style={styles.emptyText}>Sin citas hoy</Text>
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Próximas citas</Text>
-          {upcomingAppointments.map(apt => (
-            <View key={apt.id} style={styles.upcomingCard}>
-              <Text style={styles.upcomingDate}>
-                {new Date(apt.date).toLocaleDateString('es-AR', { 
-                  day: 'numeric', 
-                  month: 'short' 
-                })} - {new Date(apt.date).toLocaleTimeString('es-AR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </Text>
-              <Text style={styles.upcomingClient}>{apt.clientName}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Próximas citas */}
+        {upcomingAppointments.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Próximas</Text>
+            {upcomingAppointments.map(apt => (
+              <View key={apt.id} style={styles.upcomingCard}>
+                <Text style={styles.upcomingDate}>
+                  {new Date(apt.date).toLocaleDateString('es-AR', { 
+                    day: 'numeric', 
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+                <Text style={styles.upcomingClient} numberOfLines={1}>
+                  {apt.clientName}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
+        {/* Accesos rápidos */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Accesos rápidos</Text>
+          <Text style={styles.sectionTitle}>Acciones</Text>
           <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.quickAction}>
+            <TouchableOpacity 
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('NewAppointment', {})}
+            >
               <Text style={styles.quickActionIcon}>📅</Text>
-              <Text style={styles.quickActionText}>Nueva cita</Text>
+              <Text style={styles.quickActionText}>Nueva{'\n'}cita</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
+            
+            <TouchableOpacity 
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('NewClient')}
+            >
               <Text style={styles.quickActionIcon}>👤</Text>
-              <Text style={styles.quickActionText}>Nuevo cliente</Text>
+              <Text style={styles.quickActionText}>Nuevo{'\n'}cliente</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
+            
+            <TouchableOpacity 
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('QuoteScreen')}
+            >
               <Text style={styles.quickActionIcon}>💰</Text>
               <Text style={styles.quickActionText}>Cotizar</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -148,173 +187,162 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 10,
+    padding: 16,
+    paddingTop: 8,
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
   },
   studioName: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
   },
   trialBanner: {
     backgroundColor: '#fef3c7',
-    padding: 16,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
+    padding: 12,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 16,
   },
   trialTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#92400e',
-    marginBottom: 4,
   },
   trialText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#92400e',
+    marginTop: 2,
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
   },
   statNumber: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
+    marginTop: 2,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   appointmentCard: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    alignItems: 'center',
   },
-  appointmentTime: {
-    width: 60,
-    marginRight: 12,
-  },
-  appointmentTimeText: {
-    fontSize: 16,
+  timeText: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#000',
+    width: 50,
   },
   appointmentInfo: {
     flex: 1,
+    marginLeft: 8,
   },
-  appointmentClient: {
-    fontSize: 16,
+  clientName: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 4,
   },
-  appointmentNotes: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  appointmentPrice: {
-    fontSize: 14,
-    fontWeight: '600',
+  price: {
+    fontSize: 13,
     color: '#059669',
+    fontWeight: '500',
+    marginTop: 2,
   },
-  statusBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  badge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusconfirmed: {
+  badgeConfirmed: {
     backgroundColor: '#d1fae5',
   },
-  statuspending: {
+  badgePending: {
     backgroundColor: '#fed7aa',
   },
-  statusText: {
-    fontSize: 16,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyStateText: {
+  badgeText: {
     fontSize: 14,
+  },
+  emptyText: {
+    fontSize: 13,
     color: '#999',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
   upcomingCard: {
     backgroundColor: '#f9fafb',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
     borderLeftWidth: 3,
     borderLeftColor: '#000',
   },
   upcomingDate: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    marginBottom: 4,
   },
   upcomingClient: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#000',
+    marginTop: 2,
   },
   quickActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   quickAction: {
     flex: 1,
     backgroundColor: '#000',
-    padding: 16,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 10,
     alignItems: 'center',
+    minHeight: 80,
+    justifyContent: 'center',
   },
   quickActionIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    fontSize: 24,
+    marginBottom: 4,
   },
   quickActionText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#fff',
+    textAlign: 'center',
+    lineHeight: 13,
   },
 });

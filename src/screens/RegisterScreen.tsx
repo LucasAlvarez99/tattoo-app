@@ -9,10 +9,12 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { supabase } from '../lib/supabaseClient';
+import SafeScreen from '../components/SafeScreen';
 
 type RegisterScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
@@ -61,77 +63,81 @@ export default function RegisterScreen({ navigation }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Crear Cuenta</Text>
-        <Text style={styles.subtitle}>Registrate para empezar</Text>
-
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor="#999"
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={!loading}
-        />
-
-        <TextInput
-          placeholder="Contraseña"
-          placeholderTextColor="#999"
-          secureTextEntry
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          editable={!loading}
-        />
-
-        <TextInput
-          placeholder="Confirmar contraseña"
-          placeholderTextColor="#999"
-          secureTextEntry
-          style={styles.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          editable={!loading}
-        />
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
+    <SafeScreen>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={registerStyles.container}
+      >
+        <ScrollView 
+          contentContainerStyle={registerStyles.content}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Crear cuenta</Text>
-          )}
-        </TouchableOpacity>
+          <Text style={registerStyles.title}>Crear Cuenta</Text>
+          <Text style={registerStyles.subtitle}>Registrate para empezar</Text>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Login')}
-          disabled={loading}
-        >
-          <Text style={styles.linkText}>
-            ¿Ya tenés cuenta? <Text style={styles.linkBold}>Iniciá sesión</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor="#999"
+            style={registerStyles.input}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
+          />
+
+          <TextInput
+            placeholder="Contraseña"
+            placeholderTextColor="#999"
+            secureTextEntry
+            style={registerStyles.input}
+            value={password}
+            onChangeText={setPassword}
+            editable={!loading}
+          />
+
+          <TextInput
+            placeholder="Confirmar contraseña"
+            placeholderTextColor="#999"
+            secureTextEntry
+            style={registerStyles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            editable={!loading}
+          />
+
+          <TouchableOpacity
+            style={[registerStyles.button, loading && registerStyles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={registerStyles.buttonText}>Crear cuenta</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            disabled={loading}
+          >
+            <Text style={registerStyles.linkText}>
+              ¿Ya tenés cuenta? <Text style={registerStyles.linkBold}>Iniciá sesión</Text>
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const registerStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
   },

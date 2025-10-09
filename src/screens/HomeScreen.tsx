@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,11 +12,12 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
 import { mockAppointments } from '../lib/mockData';
+import SafeScreen from '../components/SafeScreen';
 
-type HomeScreenNavigationProp = CompositeNavigationProp
+type HomeScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'HomeTab'>,
   NativeStackNavigationProp<RootStackParamList>
-;
+>;
 
 type Props = {
   navigation: HomeScreenNavigationProp;
@@ -45,10 +45,11 @@ export default function HomeScreen({ navigation }: Props) {
     : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeScreen edges={['top', 'left', 'right']}>
       <ScrollView 
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Header compacto */}
         <View style={styles.header}>
@@ -171,20 +172,17 @@ export default function HomeScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
         </View>
-
-        <View style={{ height: 80 }} />
       </ScrollView>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   scroll: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     padding: 16,

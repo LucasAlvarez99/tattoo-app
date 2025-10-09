@@ -4,130 +4,86 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,  
-  SafeAreaView,
+  FlatList,
 } from 'react-native';
-import { mockAppointments, Appointment } from '../lib/mockData';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mockFolders, DesignFolder } from '../lib/mockData';
+import SafeScreen from '../components/SafeScreen';
 
-export default function CalendarScreen() {
-  // Agrupar citas por día
-  const appointmentsByDate = mockAppointments.reduce((acc, apt) => {
-    const dateKey = new Date(apt.date).toDateString();
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(apt);
-    return acc;
-  }, {} as Record<string, Appointment[]>);
+export default function CatalogScreen() {
+  const insets = useSafeAreaInsets();
 
-  const dates = Object.keys(appointmentsByDate).sort((a, b) => 
-    new Date(a).getTime() - new Date(b).getTime()
-  );
-
-  const renderAppointment = (item: Appointment) => (
-    <TouchableOpacity key={item.id} style={styles.appointmentCard}>
-      <View style={styles.appointmentTime}>
-        <Text style={styles.timeText}>
-          {new Date(item.date).toLocaleTimeString('es-AR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })}
-        </Text>
-        <Text style={styles.durationText}>{item.durationMinutes}min</Text>
+  const renderFolder = ({ item }: { item: DesignFolder }) => (
+    <TouchableOpacity style={styles.folderCard}>
+      <View style={styles.folderIcon}>
+        <Text style={styles.folderIconText}>📁</Text>
       </View>
-      <View style={styles.appointmentInfo}>
-        <Text style={styles.clientName}>{item.clientName}</Text>
-        {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
-        {item.price && (
-          <Text style={styles.price}>${item.price.toLocaleString()}</Text>
+      <View style={styles.folderInfo}>
+        <Text style={styles.folderName}>{item.name}</Text>
+        {item.description && (
+          <Text style={styles.folderDescription}>{item.description}</Text>
         )}
+        <Text style={styles.folderCount}>
+          {item.designCount} {item.designCount === 1 ? 'diseño' : 'diseños'}
+        </Text>
       </View>
-      <View style={[styles.statusIndicator, styles[`status${item.status}`]]} />
+      <View style={styles.folderArrow}>
+        <Text style={styles.arrowText}>›</Text>
+      </View>
     </TouchableOpacity>
   );
 
-  const renderDateSection = (dateKey: string) => {
-    const date = new Date(dateKey);
-    const appointments = appointmentsByDate[dateKey];
-
-    return (
-      <View key={dateKey} style={styles.dateSection}>
-        <View style={styles.dateHeader}>
-          <Text style={styles.dateDay}>
-            {date.toLocaleDateString('es-AR', { weekday: 'long' })}
-          </Text>
-          <Text style={styles.dateNumber}>
-            {date.toLocaleDateString('es-AR', { 
-              day: 'numeric', 
-              month: 'long' 
-            })}
-          </Text>
-        </View>
-        {appointments.map(apt => renderAppointment(apt))}
-      </View>
-    );
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeScreen edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Agenda</Text>
+        <Text style={styles.title}>Catálogo</Text>
         <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Nueva cita</Text>
+          <Text style={styles.addButtonText}>+ Carpeta</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Filtros rápidos */}
-      <View style={styles.filtersContainer}>
-        <TouchableOpacity style={[styles.filterChip, styles.filterChipActive]}>
-          <Text style={styles.filterChipTextActive}>Todas</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.filterChip}>
-          <Text style={styles.filterChipText}>Pendientes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.filterChip}>
-          <Text style={styles.filterChipText}>Confirmadas</Text>
-        </TouchableOpacity>
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{mockFolders.length}</Text>
+          <Text style={styles.statLabel}>Carpetas</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>
+            {mockFolders.reduce((sum, f) => sum + f.designCount, 0)}
+          </Text>
+          <Text style={styles.statLabel}>Diseños totales</Text>
+        </View>
       </View>
 
-      {/* Lista de citas por fecha */}
-      <ScrollView style={styles.scroll}>
-        {dates.map(dateKey => renderDateSection(dateKey))}
-        
-        {dates.length === 0 && (
+      <FlatList
+        data={mockFolders}
+        renderItem={renderFolder}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📅</Text>
-            <Text style={styles.emptyStateText}>No hay citas programadas</Text>
+            <Text style={styles.emptyStateIcon}>🎨</Text>
+            <Text style={styles.emptyStateText}>No hay carpetas aún</Text>
             <Text style={styles.emptyStateSubtext}>
-              Agregá tu primera cita para comenzar
+              Creá tu primera carpeta para organizar tus diseños
             </Text>
           </View>
-        )}
-      </ScrollView>
+        }
+      />
 
-      {/* Leyenda de estados */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-          <Text style={styles.legendText}>Pendiente</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-          <Text style={styles.legendText}>Confirmada</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
-          <Text style={styles.legendText}>Completada</Text>
-        </View>
-      </View>
-    </SafeAreaView>
+      <TouchableOpacity 
+        style={[
+          styles.fab,
+          { bottom: 80 + insets.bottom } // 🔥 Se adapta al área segura
+        ]}
+      >
+        <Text style={styles.fabText}>+ Diseño</Text>
+      </TouchableOpacity>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -152,117 +108,88 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  filtersContainer: {
+  statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: 20,
+    gap: 12,
   },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-  },
-  filterChipActive: {
-    backgroundColor: '#000',
-  },
-  filterChipText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  scroll: {
+  statCard: {
     flex: 1,
-  },
-  dateSection: {
-    marginBottom: 24,
-  },
-  dateHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
     backgroundColor: '#f9fafb',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  folderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  dateDay: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  dateNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
-  appointmentCard: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  appointmentTime: {
-    width: 70,
+  folderIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: '#fef3c7',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
-  timeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
+  folderIconText: {
+    fontSize: 28,
   },
-  durationText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  appointmentInfo: {
+  folderInfo: {
     flex: 1,
   },
-  clientName: {
+  folderName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
     marginBottom: 4,
   },
-  notes: {
+  folderDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },
-  price: {
-    fontSize: 14,
-    fontWeight: '600',
+  folderCount: {
+    fontSize: 12,
     color: '#059669',
+    fontWeight: '500',
   },
-  statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginLeft: 8,
+  folderArrow: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  statuspending: {
-    backgroundColor: '#f59e0b',
-  },
-  statusconfirmed: {
-    backgroundColor: '#10b981',
-  },
-  statuscompleted: {
-    backgroundColor: '#3b82f6',
-  },
-  statuscancelled: {
-    backgroundColor: '#ef4444',
+  arrowText: {
+    fontSize: 24,
+    color: '#ccc',
   },
   emptyState: {
-    padding: 64,
+    padding: 48,
     alignItems: 'center',
   },
   emptyStateIcon: {
@@ -280,27 +207,22 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 12,
+  fab: {
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#000',
     paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    gap: 16,
+    paddingVertical: 14,
+    borderRadius: 30,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    fontSize: 12,
-    color: '#666',
+  fabText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

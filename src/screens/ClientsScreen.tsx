@@ -1,3 +1,4 @@
+// ===== ClientsScreen.tsx =====
 import React, { useState } from 'react';
 import {
   View,
@@ -6,9 +7,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
 import { mockClients, Client } from '../lib/mockData';
+import SafeScreen from '../components/SafeScreen';
 
 export default function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +40,7 @@ export default function ClientsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeScreen edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.title}>Clientes</Text>
         <TouchableOpacity style={styles.addButton}>
@@ -90,15 +91,11 @@ export default function ClientsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -169,7 +166,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   clientCard: {
     flexDirection: 'row',
@@ -233,3 +230,6 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 });
+
+
+// ===== ProfileScreen.tsx =====

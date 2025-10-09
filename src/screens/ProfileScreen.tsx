@@ -5,10 +5,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { mockAuth } from '../lib/mockAuth';
+import SafeScreen from '../components/SafeScreen';
 
 export default function ProfileScreen() {
   const user = mockAuth.getUser();
@@ -30,19 +30,19 @@ export default function ProfileScreen() {
 
   const MenuItem = ({ icon, title, subtitle, onPress, danger }: any) => (
     <TouchableOpacity 
-      style={styles.menuItem}
+      style={profileStyles.menuItem}
       onPress={onPress}
     >
-      <View style={styles.menuIcon}>
-        <Text style={styles.menuIconText}>{icon}</Text>
+      <View style={profileStyles.menuIcon}>
+        <Text style={profileStyles.menuIconText}>{icon}</Text>
       </View>
-      <View style={styles.menuContent}>
-        <Text style={[styles.menuTitle, danger && styles.menuTitleDanger]}>
+      <View style={profileStyles.menuContent}>
+        <Text style={[profileStyles.menuTitle, danger && profileStyles.menuTitleDanger]}>
           {title}
         </Text>
-        {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
+        {subtitle && <Text style={profileStyles.menuSubtitle}>{subtitle}</Text>}
       </View>
-      <Text style={styles.menuArrow}>›</Text>
+      <Text style={profileStyles.menuArrow}>›</Text>
     </TouchableOpacity>
   );
 
@@ -51,38 +51,41 @@ export default function ProfileScreen() {
     : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scroll}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
+    <SafeScreen edges={['top', 'left', 'right']} backgroundColor="#f9fafb">
+      <ScrollView 
+        style={profileStyles.scroll}
+        contentContainerStyle={profileStyles.scrollContent}
+      >
+        <View style={profileStyles.profileHeader}>
+          <View style={profileStyles.avatar}>
+            <Text style={profileStyles.avatarText}>
               {user?.fullName?.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.name}>{user?.fullName}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
-          <Text style={styles.studio}>{user?.studioName}</Text>
+          <Text style={profileStyles.name}>{user?.fullName}</Text>
+          <Text style={profileStyles.email}>{user?.email}</Text>
+          <Text style={profileStyles.studio}>{user?.studioName}</Text>
         </View>
 
-        <View style={styles.subscriptionCard}>
-          <View style={styles.subscriptionHeader}>
-            <Text style={styles.subscriptionTitle}>
+        <View style={profileStyles.subscriptionCard}>
+          <View style={profileStyles.subscriptionHeader}>
+            <Text style={profileStyles.subscriptionTitle}>
               {user?.subscriptionStatus === 'trial' ? '🎉 Prueba gratis' : '✅ Suscripción activa'}
             </Text>
             {user?.subscriptionStatus === 'trial' && (
-              <View style={styles.trialBadge}>
-                <Text style={styles.trialBadgeText}>{daysLeft} días</Text>
+              <View style={profileStyles.trialBadge}>
+                <Text style={profileStyles.trialBadgeText}>{daysLeft} días</Text>
               </View>
             )}
           </View>
           {user?.subscriptionStatus === 'trial' && (
-            <Text style={styles.subscriptionText}>
+            <Text style={profileStyles.subscriptionText}>
               Tu período de prueba vence el{' '}
               {user.trialEndsAt.toLocaleDateString('es-AR')}
             </Text>
           )}
-          <TouchableOpacity style={styles.upgradeButton}>
-            <Text style={styles.upgradeButtonText}>
+          <TouchableOpacity style={profileStyles.upgradeButton}>
+            <Text style={profileStyles.upgradeButtonText}>
               {user?.subscriptionStatus === 'trial' 
                 ? '⭐ Suscribirme ahora' 
                 : 'Gestionar suscripción'}
@@ -90,8 +93,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Estudio</Text>
+        <View style={profileStyles.section}>
+          <Text style={profileStyles.sectionTitle}>Estudio</Text>
           <MenuItem
             icon="🏢"
             title="Datos del estudio"
@@ -112,8 +115,8 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cuenta</Text>
+        <View style={profileStyles.section}>
+          <Text style={profileStyles.sectionTitle}>Cuenta</Text>
           <MenuItem
             icon="👤"
             title="Datos personales"
@@ -134,8 +137,8 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Soporte</Text>
+        <View style={profileStyles.section}>
+          <Text style={profileStyles.sectionTitle}>Soporte</Text>
           <MenuItem
             icon="❓"
             title="Ayuda y preguntas frecuentes"
@@ -153,7 +156,7 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={profileStyles.section}>
           <MenuItem
             icon="🚪"
             title="Cerrar sesión"
@@ -162,19 +165,18 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <Text style={styles.version}>Versión 1.0.0 (Beta)</Text>
+        <Text style={profileStyles.version}>Versión 1.0.0 (Beta)</Text>
       </ScrollView>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
+const profileStyles = StyleSheet.create({
   scroll: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   profileHeader: {
     backgroundColor: '#fff',

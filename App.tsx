@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootStackParamList } from './src/types/navigation';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -36,55 +37,57 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        {!isAuthenticated ? (
-          <>
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="Register" 
-              component={RegisterScreen}
-              options={{ headerShown: false }}
-            />
-          </>
-        ) : (
-          <>
-            <Stack.Screen 
-              name="MainTabs" 
-              component={MainTabs}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="NewAppointment" 
-              component={NewAppointmentScreen}
-              options={{ 
-                title: 'Nueva Cita',
-                presentation: 'modal',
-              }}
-            />
-            <Stack.Screen 
-              name="NewClient" 
-              component={NewClientScreen}
-              options={{ 
-                title: 'Nuevo Cliente',
-                presentation: 'modal',
-              }}
-            />
-            <Stack.Screen 
-              name="QuoteScreen" 
-              component={QuoteScreen}
-              options={{ 
-                title: 'Cotizar Tatuaje',
-                presentation: 'modal',
-              }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator>
+          {!isAuthenticated ? (
+            <>
+              <Stack.Screen 
+                name="Login" 
+                component={LoginScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="Register" 
+                component={RegisterScreen}
+                options={{ headerShown: false }}
+              />
+            </>
+          ) : (
+            <>
+              <Stack.Screen 
+                name="MainTabs" 
+                component={MainTabs}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="NewAppointment" 
+                component={NewAppointmentScreen}
+                options={{ 
+                  title: 'Nueva Cita',
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen 
+                name="NewClient" 
+                component={NewClientScreen}
+                options={{ 
+                  title: 'Nuevo Cliente',
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen 
+                name="QuoteScreen" 
+                component={QuoteScreen}
+                options={{ 
+                  title: 'Cotizar Tatuaje',
+                  presentation: 'modal',
+                }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }

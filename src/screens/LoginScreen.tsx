@@ -9,8 +9,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { mockAuth } from '../lib/mockAuth';
+import SafeScreen from '../components/SafeScreen';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -33,74 +35,78 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Tattoo Manager</Text>
-        <Text style={styles.subtitle}>Iniciá sesión para continuar</Text>
-
-        <View style={styles.devInfo}>
-          <Text style={styles.devInfoText}>🔧 Modo desarrollo</Text>
-          <Text style={styles.devInfoSmall}>Usuario: admin</Text>
-          <Text style={styles.devInfoSmall}>Contraseña: admin</Text>
-        </View>
-
-        <TextInput
-          placeholder="Usuario o Email"
-          placeholderTextColor="#999"
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          editable={!loading}
-        />
-
-        <TextInput
-          placeholder="Contraseña"
-          placeholderTextColor="#999"
-          secureTextEntry
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          editable={!loading}
-        />
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
+    <SafeScreen>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Iniciar sesión</Text>
-          )}
-        </TouchableOpacity>
+          <Text style={styles.title}>Tattoo Manager</Text>
+          <Text style={styles.subtitle}>Iniciá sesión para continuar</Text>
 
-        <TouchableOpacity
-          style={styles.quickLoginButton}
-          onPress={() => {
-            setEmail('admin');
-            setPassword('admin');
-          }}
-          disabled={loading}
-        >
-          <Text style={styles.quickLoginText}>⚡ Autocompletar credenciales</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <View style={styles.devInfo}>
+            <Text style={styles.devInfoText}>🔧 Modo desarrollo</Text>
+            <Text style={styles.devInfoSmall}>Usuario: admin</Text>
+            <Text style={styles.devInfoSmall}>Contraseña: admin</Text>
+          </View>
+
+          <TextInput
+            placeholder="Usuario o Email"
+            placeholderTextColor="#999"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            editable={!loading}
+          />
+
+          <TextInput
+            placeholder="Contraseña"
+            placeholderTextColor="#999"
+            secureTextEntry
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            editable={!loading}
+          />
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Iniciar sesión</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickLoginButton}
+            onPress={() => {
+              setEmail('admin');
+              setPassword('admin');
+            }}
+            disabled={loading}
+          >
+            <Text style={styles.quickLoginText}>⚡ Autocompletar credenciales</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
   },

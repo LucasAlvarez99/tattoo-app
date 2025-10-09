@@ -5,50 +5,50 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
 import { mockFolders, DesignFolder } from '../lib/mockData';
+import SafeScreen from '../components/SafeScreen';
 
 export default function CatalogScreen() {
   const renderFolder = ({ item }: { item: DesignFolder }) => (
-    <TouchableOpacity style={styles.folderCard}>
-      <View style={styles.folderIcon}>
-        <Text style={styles.folderIconText}>📁</Text>
+    <TouchableOpacity style={catalogStyles.folderCard}>
+      <View style={catalogStyles.folderIcon}>
+        <Text style={catalogStyles.folderIconText}>📁</Text>
       </View>
-      <View style={styles.folderInfo}>
-        <Text style={styles.folderName}>{item.name}</Text>
+      <View style={catalogStyles.folderInfo}>
+        <Text style={catalogStyles.folderName}>{item.name}</Text>
         {item.description && (
-          <Text style={styles.folderDescription}>{item.description}</Text>
+          <Text style={catalogStyles.folderDescription}>{item.description}</Text>
         )}
-        <Text style={styles.folderCount}>
+        <Text style={catalogStyles.folderCount}>
           {item.designCount} {item.designCount === 1 ? 'diseño' : 'diseños'}
         </Text>
       </View>
-      <View style={styles.folderArrow}>
-        <Text style={styles.arrowText}>›</Text>
+      <View style={catalogStyles.folderArrow}>
+        <Text style={catalogStyles.arrowText}>›</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Catálogo</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Carpeta</Text>
+    <SafeScreen edges={['top', 'left', 'right']}>
+      <View style={catalogStyles.header}>
+        <Text style={catalogStyles.title}>Catálogo</Text>
+        <TouchableOpacity style={catalogStyles.addButton}>
+          <Text style={catalogStyles.addButtonText}>+ Carpeta</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{mockFolders.length}</Text>
-          <Text style={styles.statLabel}>Carpetas</Text>
+      <View style={catalogStyles.statsContainer}>
+        <View style={catalogStyles.statCard}>
+          <Text style={catalogStyles.statNumber}>{mockFolders.length}</Text>
+          <Text style={catalogStyles.statLabel}>Carpetas</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
+        <View style={catalogStyles.statCard}>
+          <Text style={catalogStyles.statNumber}>
             {mockFolders.reduce((sum, f) => sum + f.designCount, 0)}
           </Text>
-          <Text style={styles.statLabel}>Diseños totales</Text>
+          <Text style={catalogStyles.statLabel}>Diseños totales</Text>
         </View>
       </View>
 
@@ -56,30 +56,26 @@ export default function CatalogScreen() {
         data={mockFolders}
         renderItem={renderFolder}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={catalogStyles.listContent}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>🎨</Text>
-            <Text style={styles.emptyStateText}>No hay carpetas aún</Text>
-            <Text style={styles.emptyStateSubtext}>
+          <View style={catalogStyles.emptyState}>
+            <Text style={catalogStyles.emptyStateIcon}>🎨</Text>
+            <Text style={catalogStyles.emptyStateText}>No hay carpetas aún</Text>
+            <Text style={catalogStyles.emptyStateSubtext}>
               Creá tu primera carpeta para organizar tus diseños
             </Text>
           </View>
         }
       />
 
-      <TouchableOpacity style={styles.fab}>
-        <Text style={styles.fabText}>+ Diseño</Text>
+      <TouchableOpacity style={catalogStyles.fab}>
+        <Text style={catalogStyles.fabText}>+ Diseño</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+const catalogStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

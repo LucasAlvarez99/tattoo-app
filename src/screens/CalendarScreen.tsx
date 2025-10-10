@@ -1,84 +1,265 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   FlatList,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockFolders, DesignFolder } from '../lib/mockData';
+} from 'react';
+import { mockAppointments, Appointment } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
-export default function CatalogScreen() {
-  const insets = useSafeAreaInsets();
+export default function CalendarScreen() {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [view, setView] = useState<'month' | 'list'>('month');
 
-  const renderFolder = ({ item }: { item: DesignFolder }) => (
-    <TouchableOpacity style={styles.folderCard}>
-      <View style={styles.folderIcon}>
-        <Text style={styles.folderIconText}>📁</Text>
-      </View>
-      <View style={styles.folderInfo}>
-        <Text style={styles.folderName}>{item.name}</Text>
-        {item.description && (
-          <Text style={styles.folderDescription}>{item.description}</Text>
-        )}
-        <Text style={styles.folderCount}>
-          {item.designCount} {item.designCount === 1 ? 'diseño' : 'diseños'}
+  // Obtener días del mes
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay();
+
+    const days: (Date | null)[] = [];
+    
+    // Días vacíos al inicio
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Días del mes
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    
+    return days;
+  };
+
+  // Obtener citas por fecha
+  const getAppointmentsForDate = (date: Date | null) => {
+    if (!date) return [];
+    
+    return mockAppointments.filter(apt => {
+      const aptDate = new Date(apt.date);
+      return (
+        aptDate.getDate() === date.getDate() &&
+        aptDate.getMonth() === date.getMonth() &&
+        aptDate.getFullYear() === date.getFullYear()
+      );
+    });
+  };
+
+  // Cambiar mes
+  const changeMonth = (direction: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setMonth(newDate.getMonth() + direction);
+    setSelectedDate(newDate);
+  };
+
+  const days = getDaysInMonth(selectedDate);
+  const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  // Agrupar citas por fecha para vista de lista
+  const appointmentsByDate = mockAppointments.reduce((acc, apt) => {
+    const dateKey = new Date(apt.date).toDateString();
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(apt);
+    return acc;
+  }, {} as Record<string, Appointment[]>);
+
+  const sortedDates = Object.keys(appointmentsByDate).sort((a, b) => 
+    new Date(a).getTime() - new Date(b).getTime()
+  );
+
+  const renderAppointment = (item: Appointment) => (
+    <TouchableOpacity key={item.id} style={styles.appointmentCard}>
+      <View style={styles.appointmentTime}>
+        <Text style={styles.timeText}>
+          {new Date(item.date).toLocaleTimeString('es-AR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}
         </Text>
       </View>
-      <View style={styles.folderArrow}>
-        <Text style={styles.arrowText}>›</Text>
+      <View style={styles.appointmentInfo}>
+        <Text style={styles.clientName}>{item.clientName}</Text>
+        {item.notes && <Text style={styles.notes}>{item.notes}</Text>}
+        {item.price && (
+          <Text style={styles.price}>${item.price.toLocaleString()}</Text>
+        )}
       </View>
+      <View style={[styles.statusDot, styles[`status${item.status}`]]} />
     </TouchableOpacity>
   );
 
+  const renderDay = (day: Date | null, index: number) => {
+    if (!day) {
+      return <View key={`empty-${index}`} style={styles.dayCell} />;
+    }
+
+    const appointments = getAppointmentsForDate(day);
+    const isToday = 
+      day.getDate() === new Date().getDate() &&
+      day.getMonth() === new Date().getMonth() &&
+      day.getFullYear() === new Date().getFullYear();
+
+    return (
+      <TouchableOpacity
+        key={day.toISOString()}
+        style={[
+          styles.dayCell,
+          isToday && styles.todayCell,
+          appointments.length > 0 && styles.dayCellWithAppointments,
+        ]}
+        onPress={() => {
+          if (appointments.length > 0) {
+            setSelectedDate(day);
+            setView('list');
+          }
+        }}
+      >
+        <Text style={[
+          styles.dayNumber,
+          isToday && styles.todayNumber,
+          appointments.length > 0 && styles.dayNumberWithAppointments,
+        ]}>
+          {day.getDate()}
+        </Text>
+        {appointments.length > 0 && (
+          <View style={styles.appointmentDots}>
+            {appointments.slice(0, 3).map((apt, i) => (
+              <View 
+                key={apt.id} 
+                style={[
+                  styles.appointmentDot,
+                  { backgroundColor: apt.status === 'confirmed' ? '#10b981' : '#f59e0b' }
+                ]} 
+              />
+            ))}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderDateSection = (dateKey: string) => {
+    const date = new Date(dateKey);
+    const appointments = appointmentsByDate[dateKey];
+
+    return (
+      <View key={dateKey} style={styles.dateSection}>
+        <View style={styles.dateHeader}>
+          <Text style={styles.dateDay}>
+            {date.toLocaleDateString('es-AR', { weekday: 'long' })}
+          </Text>
+          <Text style={styles.dateNumber}>
+            {date.toLocaleDateString('es-AR', { 
+              day: 'numeric', 
+              month: 'long',
+              year: 'numeric'
+            })}
+          </Text>
+        </View>
+        {appointments.map(apt => renderAppointment(apt))}
+      </View>
+    );
+  };
+
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Catálogo</Text>
+        <Text style={styles.title}>Agenda</Text>
         <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Carpeta</Text>
+          <Text style={styles.addButtonText}>+ Nueva cita</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{mockFolders.length}</Text>
-          <Text style={styles.statLabel}>Carpetas</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {mockFolders.reduce((sum, f) => sum + f.designCount, 0)}
+      {/* Selector de vista */}
+      <View style={styles.viewSelector}>
+        <TouchableOpacity
+          style={[styles.viewButton, view === 'month' && styles.viewButtonActive]}
+          onPress={() => setView('month')}
+        >
+          <Text style={[styles.viewButtonText, view === 'month' && styles.viewButtonTextActive]}>
+            📅 Mes
           </Text>
-          <Text style={styles.statLabel}>Diseños totales</Text>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewButton, view === 'list' && styles.viewButtonActive]}
+          onPress={() => setView('list')}
+        >
+          <Text style={[styles.viewButtonText, view === 'list' && styles.viewButtonTextActive]}>
+            📋 Lista
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={mockFolders}
-        renderItem={renderFolder}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>🎨</Text>
-            <Text style={styles.emptyStateText}>No hay carpetas aún</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Creá tu primera carpeta para organizar tus diseños
+      {view === 'month' ? (
+        <>
+          {/* Controles del mes */}
+          <View style={styles.monthControls}>
+            <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.monthButton}>
+              <Text style={styles.monthButtonText}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.monthTitle}>
+              {selectedDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
             </Text>
+            <TouchableOpacity onPress={() => changeMonth(1)} style={styles.monthButton}>
+              <Text style={styles.monthButtonText}>›</Text>
+            </TouchableOpacity>
           </View>
-        }
-      />
 
-      <TouchableOpacity 
-        style={[
-          styles.fab,
-          { bottom: 80 + insets.bottom } // 🔥 Se adapta al área segura
-        ]}
-      >
-        <Text style={styles.fabText}>+ Diseño</Text>
-      </TouchableOpacity>
+          {/* Días de la semana */}
+          <View style={styles.weekDaysContainer}>
+            {weekDays.map(day => (
+              <Text key={day} style={styles.weekDay}>{day}</Text>
+            ))}
+          </View>
+
+          {/* Calendario */}
+          <ScrollView style={styles.calendarScroll} contentContainerStyle={styles.calendarContent}>
+            <View style={styles.daysGrid}>
+              {days.map((day, index) => renderDay(day, index))}
+            </View>
+
+            {/* Leyenda */}
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <Text style={styles.legendText}>Pendiente</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                <Text style={styles.legendText}>Confirmada</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </>
+      ) : (
+        <>
+          {/* Vista de lista */}
+          <ScrollView 
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {sortedDates.map(dateKey => renderDateSection(dateKey))}
+            
+            {sortedDates.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateIcon}>📅</Text>
+                <Text style={styles.emptyStateText}>No hay citas programadas</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Agregá tu primera cita para comenzar
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </>
+      )}
     </SafeScreen>
   );
 }
@@ -108,88 +289,225 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  statsContainer: {
+  viewSelector: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: 16,
+    gap: 8,
   },
-  statCard: {
+  viewButton: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
     alignItems: 'center',
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
+  viewButtonActive: {
+    backgroundColor: '#000',
   },
-  statLabel: {
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  viewButtonTextActive: {
+    color: '#fff',
+  },
+  monthControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  monthButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthButtonText: {
+    fontSize: 24,
+    color: '#000',
+    fontWeight: '600',
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    textTransform: 'capitalize',
+  },
+  weekDaysContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  weekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  calendarScroll: {
+    flex: 1,
+  },
+  calendarContent: {
+    paddingBottom: 100,
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+  },
+  dayCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  todayCell: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+  },
+  dayCellWithAppointments: {
+    backgroundColor: '#f0f9ff',
+  },
+  dayNumber: {
+    fontSize: 14,
+    color: '#000',
+    fontWeight: '500',
+  },
+  todayNumber: {
+    fontWeight: '700',
+    color: '#92400e',
+  },
+  dayNumberWithAppointments: {
+    fontWeight: '700',
+  },
+  appointmentDots: {
+    flexDirection: 'row',
+    marginTop: 2,
+    gap: 2,
+  },
+  appointmentDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    gap: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
     fontSize: 12,
     color: '#666',
   },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-  },
-  folderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  folderIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#fef3c7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  folderIconText: {
-    fontSize: 28,
-  },
-  folderInfo: {
+  scroll: {
     flex: 1,
   },
-  folderName: {
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  dateSection: {
+    marginBottom: 24,
+  },
+  dateHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#f9fafb',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  dateDay: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  dateNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  appointmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  appointmentTime: {
+    width: 70,
+    marginRight: 12,
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  appointmentInfo: {
+    flex: 1,
+  },
+  clientName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
     marginBottom: 4,
   },
-  folderDescription: {
+  notes: {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },
-  folderCount: {
-    fontSize: 12,
+  price: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#059669',
-    fontWeight: '500',
   },
-  folderArrow: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8,
   },
-  arrowText: {
-    fontSize: 24,
-    color: '#ccc',
+  statuspending: {
+    backgroundColor: '#f59e0b',
+  },
+  statusconfirmed: {
+    backgroundColor: '#10b981',
+  },
+  statuscompleted: {
+    backgroundColor: '#3b82f6',
+  },
+  statuscancelled: {
+    backgroundColor: '#ef4444',
   },
   emptyState: {
-    padding: 48,
+    padding: 64,
     alignItems: 'center',
   },
   emptyStateIcon: {
@@ -206,23 +524,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    backgroundColor: '#000',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  fabText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

@@ -11,7 +11,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
-import { mockAppointments } from '../lib/mockData';
+import { 
+  getTodayAppointments, 
+  getUpcomingAppointments, 
+  getPendingAppointments 
+} from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
 type HomeScreenNavigationProp = CompositeNavigationProp<
@@ -26,19 +30,9 @@ type Props = {
 export default function HomeScreen({ navigation }: Props) {
   const user = mockAuth.getUser();
   
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const todayAppointments = mockAppointments.filter(apt => {
-    const aptDate = new Date(apt.date);
-    aptDate.setHours(0, 0, 0, 0);
-    return aptDate.getTime() === today.getTime();
-  });
-
-  const upcomingAppointments = mockAppointments
-    .filter(apt => new Date(apt.date) > new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 3);
+  const todayAppointments = getTodayAppointments();
+  const upcomingAppointments = getUpcomingAppointments(3);
+  const pendingAppointments = getPendingAppointments();
 
   const daysUntilTrialEnd = user?.trialEndsAt 
     ? Math.ceil((user.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))

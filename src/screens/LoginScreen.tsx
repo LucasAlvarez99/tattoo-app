@@ -11,10 +11,14 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
 import SafeScreen from '../components/SafeScreen';
 
-export default function LoginScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+
+export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,12 +50,6 @@ export default function LoginScreen() {
         >
           <Text style={styles.title}>Tattoo Manager</Text>
           <Text style={styles.subtitle}>Iniciá sesión para continuar</Text>
-
-          <View style={styles.devInfo}>
-            <Text style={styles.devInfoText}>🔧 Modo desarrollo</Text>
-            <Text style={styles.devInfoSmall}>Usuario: admin</Text>
-            <Text style={styles.devInfoSmall}>Contraseña: admin</Text>
-          </View>
 
           <TextInput
             placeholder="Usuario o Email"
@@ -86,15 +84,30 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.quickLoginButton}
-            onPress={() => {
-              setEmail('admin');
-              setPassword('admin');
-            }}
+            style={styles.registerButton}
+            onPress={() => navigation.navigate('Register')}
             disabled={loading}
           >
-            <Text style={styles.quickLoginText}>⚡ Autocompletar credenciales</Text>
+            <Text style={styles.registerText}>
+              ¿No tenés cuenta? <Text style={styles.registerBold}>Crear cuenta</Text>
+            </Text>
           </TouchableOpacity>
+
+          {/* Solo para desarrollo */}
+          {__DEV__ && (
+            <View style={styles.devInfo}>
+              <Text style={styles.devInfoText}>🔧 Modo desarrollo</Text>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => {
+                  setEmail('admin');
+                  setPassword('admin');
+                }}
+              >
+                <Text style={styles.devButtonText}>⚡ admin/admin</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeScreen>
@@ -120,28 +133,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
     color: '#666',
-  },
-  devInfo: {
-    backgroundColor: '#f0f9ff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#0ea5e9',
-  },
-  devInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0369a1',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  devInfoSmall: {
-    fontSize: 12,
-    color: '#0369a1',
-    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
@@ -168,15 +161,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  quickLoginButton: {
+  registerButton: {
     padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
   },
-  quickLoginText: {
+  registerText: {
     textAlign: 'center',
-    color: '#374151',
+    color: '#666',
     fontSize: 14,
-    fontWeight: '500',
+  },
+  registerBold: {
+    color: '#000',
+    fontWeight: '600',
+  },
+  devInfo: {
+    marginTop: 32,
+    padding: 16,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+  },
+  devInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0369a1',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  devButton: {
+    backgroundColor: '#0ea5e9',
+    padding: 10,
+    borderRadius: 6,
+  },
+  devButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

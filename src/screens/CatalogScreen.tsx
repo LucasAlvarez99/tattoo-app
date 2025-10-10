@@ -1,81 +1,233 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   FlatList,
+  Alert,
+  Modal,
 } from 'react-native';
-import { mockFolders, DesignFolder } from '../lib/mockData';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mockFolders, mockDesigns, DesignFolder } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
 export default function CatalogScreen() {
+  const insets = useSafeAreaInsets();
+  const [folders, setFolders] = useState<DesignFolder[]>(mockFolders);
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderDescription, setNewFolderDescription] = useState('');
+  const [selectedColor, setSelectedColor] = useState('#fef3c7');
+
+  const colors = [
+    '#fef3c7', // Amarillo
+    '#dbeafe', // Azul
+    '#fecaca', // Rojo
+    '#d1fae5', // Verde
+    '#e9d5ff', // Púrpura
+    '#fed7aa', // Naranja
+    '#fbcfe8', // Rosa
+    '#d1d5db', // Gris
+  ];
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) {
+      Alert.alert('Error', 'El nombre de la carpeta es requerido');
+      return;
+    }
+
+    const newFolder: DesignFolder = {
+      id: Date.now().toString(),
+      name: newFolderName.trim(),
+      description: newFolderDescription.trim() || undefined,
+      color: selectedColor,
+      designCount: 0,
+      createdAt: new Date(),
+    };
+
+    setFolders([...folders, newFolder]);
+    setShowNewFolderModal(false);
+    setNewFolderName('');
+    setNewFolderDescription('');
+    setSelectedColor('#fef3c7');
+    
+    Alert.alert('✅ Carpeta creada', `"${newFolder.name}" fue creada correctamente`);
+  };
+
+  const handleDeleteFolder = (folderId: string, folderName: string) => {
+    Alert.alert(
+      'Eliminar carpeta',
+      `¿Estás seguro de eliminar "${folderName}"? Se eliminarán todos los diseños dentro.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            setFolders(folders.filter(f => f.id !== folderId));
+          },
+        },
+      ]
+    );
+  };
+
   const renderFolder = ({ item }: { item: DesignFolder }) => (
-    <TouchableOpacity style={catalogStyles.folderCard}>
-      <View style={catalogStyles.folderIcon}>
-        <Text style={catalogStyles.folderIconText}>📁</Text>
+    <TouchableOpacity 
+      style={styles.folderCard}
+      onLongPress={() => handleDeleteFolder(item.id, item.name)}
+    >
+      <View style={[styles.folderIcon, { backgroundColor: item.color }]}>
+        <Text style={styles.folderIconText}>📁</Text>
       </View>
-      <View style={catalogStyles.folderInfo}>
-        <Text style={catalogStyles.folderName}>{item.name}</Text>
+      <View style={styles.folderInfo}>
+        <Text style={styles.folderName}>{item.name}</Text>
         {item.description && (
-          <Text style={catalogStyles.folderDescription}>{item.description}</Text>
+          <Text style={styles.folderDescription}>{item.description}</Text>
         )}
-        <Text style={catalogStyles.folderCount}>
+        <Text style={styles.folderCount}>
           {item.designCount} {item.designCount === 1 ? 'diseño' : 'diseños'}
         </Text>
       </View>
-      <View style={catalogStyles.folderArrow}>
-        <Text style={catalogStyles.arrowText}>›</Text>
+      <View style={styles.folderArrow}>
+        <Text style={styles.arrowText}>›</Text>
       </View>
     </TouchableOpacity>
   );
 
+  const totalDesigns = folders.reduce((sum, f) => sum + f.designCount, 0);
+
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
-      <View style={catalogStyles.header}>
-        <Text style={catalogStyles.title}>Catálogo</Text>
-        <TouchableOpacity style={catalogStyles.addButton}>
-          <Text style={catalogStyles.addButtonText}>+ Carpeta</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Catálogo</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowNewFolderModal(true)}
+        >
+          <Text style={styles.addButtonText}>+ Carpeta</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={catalogStyles.statsContainer}>
-        <View style={catalogStyles.statCard}>
-          <Text style={catalogStyles.statNumber}>{mockFolders.length}</Text>
-          <Text style={catalogStyles.statLabel}>Carpetas</Text>
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{folders.length}</Text>
+          <Text style={styles.statLabel}>Carpetas</Text>
         </View>
-        <View style={catalogStyles.statCard}>
-          <Text style={catalogStyles.statNumber}>
-            {mockFolders.reduce((sum, f) => sum + f.designCount, 0)}
-          </Text>
-          <Text style={catalogStyles.statLabel}>Diseños totales</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{totalDesigns}</Text>
+          <Text style={styles.statLabel}>Diseños totales</Text>
         </View>
       </View>
 
       <FlatList
-        data={mockFolders}
+        data={folders}
         renderItem={renderFolder}
         keyExtractor={item => item.id}
-        contentContainerStyle={catalogStyles.listContent}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <View style={catalogStyles.emptyState}>
-            <Text style={catalogStyles.emptyStateIcon}>🎨</Text>
-            <Text style={catalogStyles.emptyStateText}>No hay carpetas aún</Text>
-            <Text style={catalogStyles.emptyStateSubtext}>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>🎨</Text>
+            <Text style={styles.emptyStateText}>No hay carpetas aún</Text>
+            <Text style={styles.emptyStateSubtext}>
               Creá tu primera carpeta para organizar tus diseños
             </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => setShowNewFolderModal(true)}
+            >
+              <Text style={styles.emptyButtonText}>+ Crear carpeta</Text>
+            </TouchableOpacity>
           </View>
         }
       />
 
-      <TouchableOpacity style={catalogStyles.fab}>
-        <Text style={catalogStyles.fabText}>+ Diseño</Text>
-      </TouchableOpacity>
+      {/* Modal Nueva Carpeta */}
+      <Modal
+        visible={showNewFolderModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowNewFolderModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Nueva Carpeta</Text>
+
+            <Text style={styles.inputLabel}>Nombre *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: Vikingos, Amor, Tribal..."
+              placeholderTextColor="#999"
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              autoFocus
+            />
+
+            <Text style={styles.inputLabel}>Descripción</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Opcional"
+              placeholderTextColor="#999"
+              value={newFolderDescription}
+              onChangeText={setNewFolderDescription}
+            />
+
+            <Text style={styles.inputLabel}>Color</Text>
+            <View style={styles.colorPicker}>
+              {colors.map(color => (
+                <TouchableOpacity
+                  key={color}
+                  style={[
+                    styles.colorOption,
+                    { backgroundColor: color },
+                    selectedColor === color && styles.colorOptionSelected,
+                  ]}
+                  onPress={() => setSelectedColor(color)}
+                >
+                  {selectedColor === color && (
+                    <Text style={styles.colorCheck}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowNewFolderModal(false);
+                  setNewFolderName('');
+                  setNewFolderDescription('');
+                  setSelectedColor('#fef3c7');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCreateButton}
+                onPress={handleCreateFolder}
+              >
+                <Text style={styles.modalCreateText}>Crear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {folders.length > 0 && (
+        <TouchableOpacity 
+          style={[styles.fab, { bottom: 80 + insets.bottom }]}
+          onPress={() => Alert.alert('Función próximamente', 'Agregar diseño a carpeta')}
+        >
+          <Text style={styles.fabText}>+ Diseño</Text>
+        </TouchableOpacity>
+      )}
     </SafeScreen>
   );
 }
 
-const catalogStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -143,7 +295,6 @@ const catalogStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#fef3c7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -198,10 +349,21 @@ const catalogStyles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',
-    bottom: 80,
     right: 20,
     backgroundColor: '#000',
     paddingHorizontal: 20,
@@ -216,6 +378,94 @@ const catalogStyles = StyleSheet.create({
   fabText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  colorPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  colorOption: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorOptionSelected: {
+    borderColor: '#000',
+    borderWidth: 3,
+  },
+  colorCheck: {
+    fontSize: 24,
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  modalCreateButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#000',
+    alignItems: 'center',
+  },
+  modalCreateText: {
+    fontSize: 16,
+    color: '#fff',
     fontWeight: '600',
   },
 });

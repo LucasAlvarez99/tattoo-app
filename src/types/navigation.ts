@@ -10,6 +10,11 @@ export type RootStackParamList = {
   QuoteScreen: undefined;
   AppointmentDetail: { appointmentId: string };
   ClientDetail: { clientId: string };
+  FolderDetail: { 
+    folderId: string; 
+    folderName: string; 
+    folderColor: string;
+  };
 };
 
 // Tipos para el Tab Navigator

@@ -10,7 +10,7 @@ import {
   TextInput,
   Switch,
   Linking,
-} from 'react';
+} from 'react-native';
 import { mockAuth } from '../lib/mockAuth';
 import { 
   mockStudioData, 
@@ -23,6 +23,16 @@ import {
 import SafeScreen from '../components/SafeScreen';
 
 type ModalType = 'none' | 'studio' | 'prices' | 'messages';
+
+// ✅ CORREGIDO: Agregado tipo para MenuItem props
+interface MenuItemProps {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  danger?: boolean;
+  badge?: string | number;
+}
 
 export default function ProfileScreen() {
   const user = mockAuth.getUser();
@@ -53,7 +63,9 @@ export default function ProfileScreen() {
 
   const handleOpenMaps = () => {
     if (studioData.googleMapsLink) {
-      Linking.openURL(studioData.googleMapsLink);
+      Linking.openURL(studioData.googleMapsLink).catch(() => {
+        Alert.alert('Error', 'No se pudo abrir Google Maps');
+      });
     }
   };
 
@@ -108,7 +120,8 @@ export default function ProfileScreen() {
     setEditingTemplate({ ...editingTemplate, channels });
   };
 
-  const MenuItem = ({ icon, title, subtitle, onPress, danger, badge }: any) => (
+  // ✅ CORREGIDO: MenuItem ahora tiene el tipo correcto
+  const MenuItem = ({ icon, title, subtitle, onPress, danger, badge }: MenuItemProps) => (
     <TouchableOpacity 
       style={styles.menuItem}
       onPress={onPress}
@@ -210,19 +223,19 @@ export default function ProfileScreen() {
             icon="👤"
             title="Datos personales"
             subtitle={user?.phone}
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
           <MenuItem
             icon="🔒"
             title="Seguridad"
             subtitle="Cambiar contraseña"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
           <MenuItem
             icon="💳"
             title="Pagos y facturación"
             subtitle="Historial de pagos"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
         </View>
 
@@ -231,17 +244,17 @@ export default function ProfileScreen() {
           <MenuItem
             icon="❓"
             title="Ayuda y preguntas frecuentes"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
           <MenuItem
             icon="📧"
             title="Contactar soporte"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
           <MenuItem
             icon="⭐"
             title="Calificar la app"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
           />
         </View>
 

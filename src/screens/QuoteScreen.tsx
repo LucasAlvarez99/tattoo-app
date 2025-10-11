@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-} from 'react';
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { mockPriceCategories, calculateQuote } from '../lib/mockData';
@@ -77,8 +77,12 @@ export default function QuoteScreen({ navigation }: Props) {
         {
           text: 'Sí, crear',
           onPress: () => {
+            // ✅ CORREGIDO: Primero hacemos goBack y luego navegamos
             navigation.goBack();
-            navigation.navigate('NewAppointment', {});
+            // Usamos setTimeout para asegurar que la navegación ocurra después del goBack
+            setTimeout(() => {
+              navigation.navigate('NewAppointment', {});
+            }, 100);
           },
         },
       ]

@@ -5,8 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  FlatList,
-} from 'react';
+} from 'react-native';
 import { mockAppointments, Appointment } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
@@ -91,7 +90,7 @@ export default function CalendarScreen() {
           <Text style={styles.price}>${item.price.toLocaleString()}</Text>
         )}
       </View>
-      <View style={[styles.statusDot, styles[`status${item.status}`]]} />
+      <View style={[styles.statusDot, styles[`status${item.status}` as keyof typeof styles]]} />
     </TouchableOpacity>
   );
 
@@ -130,7 +129,7 @@ export default function CalendarScreen() {
         </Text>
         {appointments.length > 0 && (
           <View style={styles.appointmentDots}>
-            {appointments.slice(0, 3).map((apt, i) => (
+            {appointments.slice(0, 3).map((apt) => (
               <View 
                 key={apt.id} 
                 style={[

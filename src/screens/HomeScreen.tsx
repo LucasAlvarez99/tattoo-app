@@ -12,6 +12,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
 import { 
+  mockAppointments,  // ✅ AGREGADO: Import que faltaba
   getTodayAppointments, 
   getUpcomingAppointments, 
   getPendingAppointments 
@@ -74,7 +75,7 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.statLabel}>Hoy</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{mockAppointments.length}</Text>
+            <Text style={styles.statNumber}>{pendingAppointments.length}</Text>
             <Text style={styles.statLabel}>Pendientes</Text>
           </View>
           <View style={styles.statCard}>

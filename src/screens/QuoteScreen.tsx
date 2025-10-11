@@ -7,43 +7,68 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-} from 'react-native';
+} from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { mockPriceCategories, calculateQuote } from '../lib/mockData';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuoteScreen'>;
 
 export default function QuoteScreen({ navigation }: Props) {
-  const [size, setSize] = useState('');
-  const [hours, setHours] = useState('');
-  const [complexity, setComplexity] = useState<'simple' | 'medium' | 'complex'>('medium');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
+  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+  const [customAdjustment, setCustomAdjustment] = useState('');
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
 
-  const calculatePrice = () => {
-    if (!size || !hours) {
-      Alert.alert('Error', 'Por favor completá tamaño y horas estimadas');
+  const sizeCategory = mockPriceCategories.find(c => c.id === 'size');
+  const styleCategory = mockPriceCategories.find(c => c.id === 'style');
+  const zoneCategory = mockPriceCategories.find(c => c.id === 'zone');
+  const extrasCategory = mockPriceCategories.find(c => c.id === 'extras');
+
+  const handleCalculate = () => {
+    if (!selectedSize || !selectedStyle || !selectedZone) {
+      Alert.alert('Error', 'Por favor seleccioná tamaño, estilo y zona');
       return;
     }
 
-    const sizeNum = parseFloat(size);
-    const hoursNum = parseFloat(hours);
-
-    let basePrice = 10000; // Precio base por hora
+    let price = calculateQuote(selectedSize, selectedStyle, selectedZone, selectedExtras);
     
-    // Ajustar por complejidad
-    if (complexity === 'simple') basePrice = 8000;
-    if (complexity === 'complex') basePrice = 15000;
+    // Ajuste manual
+    if (customAdjustment) {
+      const adjustment = parseFloat(customAdjustment);
+      if (!isNaN(adjustment)) {
+        price += adjustment;
+      }
+    }
 
-    // Ajustar por tamaño
-    let sizeMultiplier = 1;
-    if (sizeNum > 20) sizeMultiplier = 1.5;
-    if (sizeNum > 30) sizeMultiplier = 2;
+    setCalculatedPrice(price);
+  };
 
-    const total = Math.round(basePrice * hoursNum * sizeMultiplier);
-    setCalculatedPrice(total);
+  const handleReset = () => {
+    setSelectedSize('');
+    setSelectedStyle('');
+    setSelectedZone('');
+    setSelectedExtras([]);
+    setCustomAdjustment('');
+    setCalculatedPrice(null);
+  };
+
+  const toggleExtra = (extraId: string) => {
+    if (selectedExtras.includes(extraId)) {
+      setSelectedExtras(selectedExtras.filter(id => id !== extraId));
+    } else {
+      setSelectedExtras([...selectedExtras, extraId]);
+    }
   };
 
   const handleCreateAppointment = () => {
+    if (calculatedPrice === null) {
+      Alert.alert('Error', 'Primero calculá el precio');
+      return;
+    }
+
     Alert.alert(
       'Crear cita',
       '¿Querés crear una cita con esta cotización?',
@@ -65,120 +90,201 @@ export default function QuoteScreen({ navigation }: Props) {
       <View style={styles.content}>
         {/* Tamaño */}
         <View style={styles.section}>
-          <Text style={styles.label}>Tamaño del tatuaje (cm) *</Text>
+          <Text style={styles.sectionTitle}>1. Tamaño *</Text>
+          {sizeCategory?.items.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.optionCard,
+                selectedSize === item.id && styles.optionCardSelected,
+              ]}
+              onPress={() => setSelectedSize(item.id)}
+            >
+              <View style={styles.optionInfo}>
+                <Text style={[
+                  styles.optionName,
+                  selectedSize === item.id && styles.optionNameSelected,
+                ]}>
+                  {item.name}
+                </Text>
+                {item.description && (
+                  <Text style={styles.optionDescription}>{item.description}</Text>
+                )}
+              </View>
+              <Text style={styles.optionPrice}>${item.basePrice.toLocaleString()}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Estilo */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>2. Estilo *</Text>
+          {styleCategory?.items.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.optionCard,
+                selectedStyle === item.id && styles.optionCardSelected,
+              ]}
+              onPress={() => setSelectedStyle(item.id)}
+            >
+              <View style={styles.optionInfo}>
+                <Text style={[
+                  styles.optionName,
+                  selectedStyle === item.id && styles.optionNameSelected,
+                ]}>
+                  {item.name}
+                </Text>
+                {item.description && (
+                  <Text style={styles.optionDescription}>{item.description}</Text>
+                )}
+              </View>
+              {item.modifier > 0 && (
+                <Text style={styles.optionModifier}>+{item.modifier * 100}%</Text>
+              )}
+              {item.modifier === 0 && (
+                <Text style={styles.optionBase}>Base</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Zona */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>3. Zona del Cuerpo *</Text>
+          {zoneCategory?.items.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.optionCard,
+                selectedZone === item.id && styles.optionCardSelected,
+              ]}
+              onPress={() => setSelectedZone(item.id)}
+            >
+              <View style={styles.optionInfo}>
+                <Text style={[
+                  styles.optionName,
+                  selectedZone === item.id && styles.optionNameSelected,
+                ]}>
+                  {item.name}
+                </Text>
+                {item.description && (
+                  <Text style={styles.optionDescription}>{item.description}</Text>
+                )}
+              </View>
+              {item.basePrice > 0 ? (
+                <Text style={styles.optionPrice}>+${item.basePrice.toLocaleString()}</Text>
+              ) : (
+                <Text style={styles.optionBase}>Incluido</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Extras */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>4. Extras (Opcional)</Text>
+          {extrasCategory?.items.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.optionCard,
+                selectedExtras.includes(item.id) && styles.optionCardSelected,
+              ]}
+              onPress={() => toggleExtra(item.id)}
+            >
+              <View style={styles.optionInfo}>
+                <Text style={[
+                  styles.optionName,
+                  selectedExtras.includes(item.id) && styles.optionNameSelected,
+                ]}>
+                  {item.name}
+                </Text>
+                {item.description && (
+                  <Text style={styles.optionDescription}>{item.description}</Text>
+                )}
+              </View>
+              {item.basePrice > 0 ? (
+                <Text style={styles.optionPrice}>+${item.basePrice.toLocaleString()}</Text>
+              ) : (
+                <Text style={styles.optionFree}>Gratis</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Ajuste manual */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>5. Ajuste Manual (Opcional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ejemplo: 15"
+            placeholder="Ej: +5000 o -3000"
             placeholderTextColor="#999"
-            value={size}
-            onChangeText={setSize}
+            value={customAdjustment}
+            onChangeText={setCustomAdjustment}
             keyboardType="numeric"
           />
+          <Text style={styles.hint}>
+            Agregá o restá un monto para ajustar el precio final
+          </Text>
         </View>
 
-        {/* Horas estimadas */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Horas estimadas *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ejemplo: 2"
-            placeholderTextColor="#999"
-            value={hours}
-            onChangeText={setHours}
-            keyboardType="numeric"
-          />
+        {/* Botones de acción */}
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+            <Text style={styles.resetButtonText}>🔄 Reiniciar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.calculateButton} onPress={handleCalculate}>
+            <Text style={styles.calculateButtonText}>💰 Calcular</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Complejidad */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Complejidad</Text>
-          <View style={styles.complexitySelector}>
-            <TouchableOpacity
-              style={[
-                styles.complexityButton,
-                complexity === 'simple' && styles.complexityButtonSelected,
-              ]}
-              onPress={() => setComplexity('simple')}
-            >
-              <Text
-                style={[
-                  styles.complexityText,
-                  complexity === 'simple' && styles.complexityTextSelected,
-                ]}
-              >
-                Simple
-              </Text>
-              <Text style={styles.complexityPrice}>$8k/hora</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.complexityButton,
-                complexity === 'medium' && styles.complexityButtonSelected,
-              ]}
-              onPress={() => setComplexity('medium')}
-            >
-              <Text
-                style={[
-                  styles.complexityText,
-                  complexity === 'medium' && styles.complexityTextSelected,
-                ]}
-              >
-                Media
-              </Text>
-              <Text style={styles.complexityPrice}>$10k/hora</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.complexityButton,
-                complexity === 'complex' && styles.complexityButtonSelected,
-              ]}
-              onPress={() => setComplexity('complex')}
-            >
-              <Text
-                style={[
-                  styles.complexityText,
-                  complexity === 'complex' && styles.complexityTextSelected,
-                ]}
-              >
-                Compleja
-              </Text>
-              <Text style={styles.complexityPrice}>$15k/hora</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Botón calcular */}
-        <TouchableOpacity style={styles.calculateButton} onPress={calculatePrice}>
-          <Text style={styles.calculateButtonText}>💰 Calcular precio</Text>
-        </TouchableOpacity>
 
         {/* Resultado */}
         {calculatedPrice !== null && (
           <View style={styles.resultCard}>
-            <Text style={styles.resultLabel}>Precio estimado</Text>
+            <Text style={styles.resultLabel}>Precio Total</Text>
             <Text style={styles.resultPrice}>
               ${calculatedPrice.toLocaleString()}
             </Text>
-            <View style={styles.resultDetails}>
+
+            <View style={styles.resultDivider} />
+
+            <Text style={styles.resultDetailsTitle}>Detalles:</Text>
+            {selectedSize && (
               <Text style={styles.resultDetail}>
-                • Tamaño: {size}cm
+                • {sizeCategory?.items.find(i => i.id === selectedSize)?.name}
               </Text>
+            )}
+            {selectedStyle && (
               <Text style={styles.resultDetail}>
-                • Duración: {hours}hs
+                • {styleCategory?.items.find(i => i.id === selectedStyle)?.name}
               </Text>
+            )}
+            {selectedZone && (
               <Text style={styles.resultDetail}>
-                • Complejidad: {complexity === 'simple' ? 'Simple' : complexity === 'medium' ? 'Media' : 'Compleja'}
+                • {zoneCategory?.items.find(i => i.id === selectedZone)?.name}
               </Text>
-            </View>
+            )}
+            {selectedExtras.length > 0 && selectedExtras.map(extraId => {
+              const extra = extrasCategory?.items.find(i => i.id === extraId);
+              return extra ? (
+                <Text key={extraId} style={styles.resultDetail}>
+                  • {extra.name}
+                </Text>
+              ) : null;
+            })}
+            {customAdjustment && (
+              <Text style={styles.resultDetail}>
+                • Ajuste manual: ${parseFloat(customAdjustment).toLocaleString()}
+              </Text>
+            )}
 
             <TouchableOpacity
               style={styles.appointmentButton}
               onPress={handleCreateAppointment}
             >
               <Text style={styles.appointmentButtonText}>
-                Crear cita con esta cotización
+                📅 Crear cita con esta cotización
               </Text>
             </TouchableOpacity>
           </View>
@@ -188,7 +294,7 @@ export default function QuoteScreen({ navigation }: Props) {
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>💡</Text>
           <Text style={styles.infoText}>
-            Esta es una estimación. Podés ajustar el precio al crear la cita.
+            Esta es una estimación basada en tu lista de precios. Podés ajustarla manualmente antes de crear la cita.
           </Text>
         </View>
 
@@ -207,13 +313,65 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  label: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 12,
+  },
+  optionCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    marginBottom: 8,
+  },
+  optionCardSelected: {
+    borderColor: '#000',
+    backgroundColor: '#f9fafb',
+  },
+  optionInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  optionName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  optionNameSelected: {
+    color: '#000',
+  },
+  optionDescription: {
+    fontSize: 13,
+    color: '#666',
+  },
+  optionPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  optionModifier: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#f59e0b',
+  },
+  optionBase: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  optionFree: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
   },
   input: {
     borderWidth: 1,
@@ -223,42 +381,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
-  complexitySelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  complexityButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    alignItems: 'center',
-  },
-  complexityButtonSelected: {
-    backgroundColor: '#000',
-    borderColor: '#000',
-  },
-  complexityText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
-  },
-  complexityTextSelected: {
-    color: '#fff',
-  },
-  complexityPrice: {
-    fontSize: 11,
+  hint: {
+    fontSize: 12,
     color: '#999',
+    marginTop: 6,
   },
-  calculateButton: {
-    backgroundColor: '#059669',
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  resetButton: {
+    flex: 1,
     padding: 16,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
     alignItems: 'center',
-    marginBottom: 24,
+  },
+  resetButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  calculateButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#059669',
+    alignItems: 'center',
   },
   calculateButtonText: {
     fontSize: 16,
@@ -266,9 +417,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resultCard: {
-    backgroundColor: '#f9fafb',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: '#f0fdf4',
+    padding: 24,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: '#059669',
     marginBottom: 20,
@@ -280,14 +431,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resultPrice: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
     color: '#059669',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  resultDetails: {
-    marginBottom: 16,
+  resultDivider: {
+    height: 1,
+    backgroundColor: '#d1fae5',
+    marginVertical: 16,
+  },
+  resultDetailsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
   },
   resultDetail: {
     fontSize: 14,
@@ -296,12 +455,13 @@ const styles = StyleSheet.create({
   },
   appointmentButton: {
     backgroundColor: '#000',
-    padding: 14,
+    padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 16,
   },
   appointmentButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#fff',
     fontWeight: '600',
   },
@@ -310,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f9ff',
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   infoIcon: {
     fontSize: 20,
@@ -320,5 +480,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#0369a1',
+    lineHeight: 18,
   },
 });

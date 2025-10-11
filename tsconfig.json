@@ -8,6 +8,7 @@
       "esnext"
     ],
     "jsx": "react-native",
+    "jsxImportSource": "react",
     "moduleResolution": "node",
     "noEmit": true,
     "allowSyntheticDefaultImports": true,

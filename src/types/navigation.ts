@@ -15,6 +15,8 @@ export type RootStackParamList = {
     folderName: string; 
     folderColor: string;
   };
+  PriceManagement: undefined;
+  ExportPDF: undefined;
 };
 
 // Tipos para el Tab Navigator

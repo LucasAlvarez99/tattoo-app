@@ -1,3 +1,5 @@
+// ==================== TIPOS ====================
+
 export type Client = {
   id: string;
   fullName: string;
@@ -24,7 +26,7 @@ export type Appointment = {
 export type DesignImage = {
   id: string;
   folderId: string;
-  uri: string; // URI local de la imagen
+  uri: string;
   name?: string;
   notes?: string;
   referencePrice?: number;
@@ -35,7 +37,7 @@ export type DesignFolder = {
   id: string;
   name: string;
   description?: string;
-  color: string; // Color hex para el icono
+  color: string;
   designCount: number;
   createdAt: Date;
 };
@@ -43,7 +45,10 @@ export type DesignFolder = {
 export type PriceCategory = {
   id: string;
   name: string;
+  description?: string;
   items: PriceItem[];
+  isActive: boolean;
+  createdAt: Date;
 };
 
 export type PriceItem = {
@@ -52,7 +57,8 @@ export type PriceItem = {
   name: string;
   basePrice: number;
   description?: string;
-  modifier: number; // 0 para precio fijo, % para modificador (ej: 0.3 = +30%)
+  isActive: boolean;
+  createdAt: Date;
 };
 
 export type StudioData = {
@@ -73,7 +79,7 @@ export type MessageTemplate = {
   message: string;
   channels: ('whatsapp' | 'email' | 'instagram')[];
   enabled: boolean;
-  sendBefore?: number; // Horas antes (para recordatorios)
+  sendBefore?: number;
 };
 
 // ==================== DATOS MOCK ====================
@@ -119,7 +125,7 @@ export const mockAppointments: Appointment[] = [
     id: '1',
     clientId: '1',
     clientName: 'Juan Pérez',
-    date: new Date('2025-10-10T15:00:00'),
+    date: new Date('2025-10-13T15:00:00'),
     durationMinutes: 120,
     status: 'confirmed',
     notes: 'Tatuaje en brazo',
@@ -130,7 +136,7 @@ export const mockAppointments: Appointment[] = [
     id: '2',
     clientId: '2',
     clientName: 'María González',
-    date: new Date('2025-10-11T18:00:00'),
+    date: new Date('2025-10-14T18:00:00'),
     durationMinutes: 60,
     status: 'pending',
     notes: 'Primera sesión',
@@ -153,10 +159,15 @@ export const mockFolders: DesignFolder[] = [];
 
 export const mockDesigns: DesignImage[] = [];
 
-export const mockPriceCategories: PriceCategory[] = [
+// ==================== PRECIOS ====================
+
+export const defaultPriceCategories: PriceCategory[] = [
   {
     id: 'size',
     name: 'Por Tamaño',
+    description: 'Cotización según dimensiones',
+    isActive: true,
+    createdAt: new Date('2024-01-01'),
     items: [
       {
         id: 'size-mini',
@@ -164,7 +175,8 @@ export const mockPriceCategories: PriceCategory[] = [
         name: 'Mini (hasta 5cm)',
         basePrice: 15000,
         description: 'Tatuajes pequeños y simples',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'size-small',
@@ -172,7 +184,8 @@ export const mockPriceCategories: PriceCategory[] = [
         name: 'Pequeño (5-10cm)',
         basePrice: 25000,
         description: 'Tamaño ideal para muñecas, tobillos',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'size-medium',
@@ -180,7 +193,8 @@ export const mockPriceCategories: PriceCategory[] = [
         name: 'Mediano (10-20cm)',
         basePrice: 45000,
         description: 'Antebrazo, pantorrilla',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'size-large',
@@ -188,97 +202,179 @@ export const mockPriceCategories: PriceCategory[] = [
         name: 'Grande (20cm+)',
         basePrice: 80000,
         description: 'Espalda, muslo, pecho',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+    ],
+  },
+  {
+    id: 'bodypart',
+    name: 'Por Pieza/Zona',
+    description: 'Cotización por parte del cuerpo',
+    isActive: true,
+    createdAt: new Date('2024-01-01'),
+    items: [
+      {
+        id: 'bodypart-arm',
+        categoryId: 'bodypart',
+        name: 'Brazo completo',
+        basePrice: 150000,
+        description: 'Manga completa de hombro a muñeca',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'bodypart-half-arm',
+        categoryId: 'bodypart',
+        name: 'Media manga',
+        basePrice: 80000,
+        description: 'Hombro a codo o codo a muñeca',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'bodypart-leg',
+        categoryId: 'bodypart',
+        name: 'Pierna completa',
+        basePrice: 180000,
+        description: 'Muslo a tobillo',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'bodypart-back',
+        categoryId: 'bodypart',
+        name: 'Espalda completa',
+        basePrice: 250000,
+        description: 'Espalda entera',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'bodypart-chest',
+        categoryId: 'bodypart',
+        name: 'Pecho completo',
+        basePrice: 180000,
+        description: 'Pecho de hombro a hombro',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+    ],
+  },
+  {
+    id: 'session',
+    name: 'Por Sesión',
+    description: 'Cotización por tiempo de trabajo',
+    isActive: true,
+    createdAt: new Date('2024-01-01'),
+    items: [
+      {
+        id: 'session-1h',
+        categoryId: 'session',
+        name: 'Sesión 1 hora',
+        basePrice: 20000,
+        description: 'Una hora de trabajo',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'session-2h',
+        categoryId: 'session',
+        name: 'Sesión 2 horas',
+        basePrice: 35000,
+        description: 'Dos horas de trabajo',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'session-3h',
+        categoryId: 'session',
+        name: 'Sesión 3 horas',
+        basePrice: 50000,
+        description: 'Tres horas de trabajo',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'session-4h',
+        categoryId: 'session',
+        name: 'Sesión 4+ horas',
+        basePrice: 65000,
+        description: 'Sesión extendida',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
     ],
   },
   {
     id: 'style',
     name: 'Por Estilo',
+    description: 'Complejidad y técnica',
+    isActive: true,
+    createdAt: new Date('2024-01-01'),
     items: [
       {
-        id: 'style-minimal',
+        id: 'style-linework',
         categoryId: 'style',
-        name: 'Minimalista',
-        basePrice: 0,
+        name: 'Linework/Minimalista',
+        basePrice: 18000,
         description: 'Líneas simples, diseño limpio',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'style-blackwork',
+        categoryId: 'style',
+        name: 'Blackwork',
+        basePrice: 25000,
+        description: 'Relleno sólido negro',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'style-color',
         categoryId: 'style',
         name: 'Color',
-        basePrice: 0,
+        basePrice: 30000,
         description: 'Con relleno de color',
-        modifier: 0.2,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'style-realistic',
         categoryId: 'style',
-        name: 'Realista',
-        basePrice: 0,
-        description: 'Alto nivel de detalle',
-        modifier: 0.3,
-      },
-      {
-        id: 'style-coverup',
-        categoryId: 'style',
-        name: 'Cobertura',
-        basePrice: 0,
-        description: 'Tapar tatuaje existente',
-        modifier: 0.5,
-      },
-    ],
-  },
-  {
-    id: 'zone',
-    name: 'Por Zona',
-    items: [
-      {
-        id: 'zone-standard',
-        categoryId: 'zone',
-        name: 'Zona Estándar',
-        basePrice: 0,
-        description: 'Brazo, pierna, hombro',
-        modifier: 0,
-      },
-      {
-        id: 'zone-sensitive',
-        categoryId: 'zone',
-        name: 'Zona Sensible',
-        basePrice: 10000,
-        description: 'Costillas, pies, manos',
-        modifier: 0,
-      },
-      {
-        id: 'zone-back',
-        categoryId: 'zone',
-        name: 'Espalda Completa',
-        basePrice: 20000,
-        description: 'Proyecto de espalda entera',
-        modifier: 0,
+        name: 'Realismo',
+        basePrice: 40000,
+        description: 'Alto nivel de detalle y sombreado',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
     ],
   },
   {
     id: 'extras',
-    name: 'Extras',
+    name: 'Extras y Servicios',
+    description: 'Servicios adicionales',
+    isActive: true,
+    createdAt: new Date('2024-01-01'),
     items: [
-      {
-        id: 'extra-session',
-        categoryId: 'extras',
-        name: 'Sesión Adicional',
-        basePrice: 15000,
-        description: 'Para proyectos que requieren múltiples sesiones',
-        modifier: 0,
-      },
       {
         id: 'extra-design',
         categoryId: 'extras',
-        name: 'Diseño Personalizado',
+        name: 'Diseño personalizado',
         basePrice: 5000,
         description: 'Creación de diseño exclusivo',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'extra-coverup',
+        categoryId: 'extras',
+        name: 'Cobertura de tatuaje',
+        basePrice: 10000,
+        description: 'Extra por tapar tatuaje existente',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
       {
         id: 'extra-touch',
@@ -286,11 +382,25 @@ export const mockPriceCategories: PriceCategory[] = [
         name: 'Retoque',
         basePrice: 0,
         description: 'Gratis primer año',
-        modifier: 0,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: 'extra-session',
+        categoryId: 'extras',
+        name: 'Sesión adicional',
+        basePrice: 15000,
+        description: 'Para proyectos de múltiples sesiones',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
       },
     ],
   },
 ];
+
+export let mockPriceCategories: PriceCategory[] = JSON.parse(
+  JSON.stringify(defaultPriceCategories)
+);
 
 export const mockStudioData: StudioData = {
   name: 'Studio Ink Master',
@@ -328,11 +438,11 @@ export const mockMessageTemplates: MessageTemplate[] = [
     message: 'Hola {nombre}! 🌟 ¿Cómo va la cicatrización de tu tatuaje? Recordá seguir los cuidados que te indicamos. Cualquier duda, escribinos! 💪',
     channels: ['whatsapp', 'instagram'],
     enabled: true,
-    sendBefore: -168, // 7 días después (negativo)
+    sendBefore: -168,
   },
 ];
 
-// ==================== FUNCIONES HELPER ====================
+// ==================== FUNCIONES HELPER - APPOINTMENTS ====================
 
 export function getTodayAppointments(): Appointment[] {
   const today = new Date();
@@ -360,57 +470,94 @@ export function getPendingAppointments(): Appointment[] {
   );
 }
 
-export function calculateQuote(
-  sizeId: string,
-  styleId: string,
-  zoneId: string,
-  extraIds: string[] = []
-): number {
-  let total = 0;
+// ==================== FUNCIONES HELPER - PRECIOS ====================
 
-  // Precio base por tamaño
-  const sizeItem = mockPriceCategories
-    .find(cat => cat.id === 'size')
-    ?.items.find(item => item.id === sizeId);
-  
-  if (sizeItem) {
-    total = sizeItem.basePrice;
-  }
-
-  // Modificador por estilo
-  const styleItem = mockPriceCategories
-    .find(cat => cat.id === 'style')
-    ?.items.find(item => item.id === styleId);
-  
-  if (styleItem && styleItem.modifier > 0) {
-    total += total * styleItem.modifier;
-  }
-
-  // Precio adicional por zona
-  const zoneItem = mockPriceCategories
-    .find(cat => cat.id === 'zone')
-    ?.items.find(item => item.id === zoneId);
-  
-  if (zoneItem) {
-    total += zoneItem.basePrice;
-    if (zoneItem.modifier > 0) {
-      total += total * zoneItem.modifier;
+export const updatePriceItem = (
+  categoryId: string,
+  itemId: string,
+  updates: Partial<PriceItem>
+) => {
+  mockPriceCategories = mockPriceCategories.map(cat => {
+    if (cat.id === categoryId) {
+      return {
+        ...cat,
+        items: cat.items.map(item =>
+          item.id === itemId ? { ...item, ...updates } : item
+        ),
+      };
     }
-  }
-
-  // Extras
-  extraIds.forEach(extraId => {
-    const extraItem = mockPriceCategories
-      .find(cat => cat.id === 'extras')
-      ?.items.find(item => item.id === extraId);
-    
-    if (extraItem) {
-      total += extraItem.basePrice;
-    }
+    return cat;
   });
+};
 
-  return Math.round(total);
-}
+export const addPriceItem = (categoryId: string, newItem: Omit<PriceItem, 'id' | 'createdAt'>) => {
+  mockPriceCategories = mockPriceCategories.map(cat => {
+    if (cat.id === categoryId) {
+      return {
+        ...cat,
+        items: [
+          ...cat.items,
+          {
+            ...newItem,
+            id: `${categoryId}-${Date.now()}`,
+            createdAt: new Date(),
+          },
+        ],
+      };
+    }
+    return cat;
+  });
+};
+
+export const deletePriceItem = (categoryId: string, itemId: string) => {
+  mockPriceCategories = mockPriceCategories.map(cat => {
+    if (cat.id === categoryId) {
+      return {
+        ...cat,
+        items: cat.items.filter(item => item.id !== itemId),
+      };
+    }
+    return cat;
+  });
+};
+
+export const addPriceCategory = (newCategory: Omit<PriceCategory, 'id' | 'createdAt'>) => {
+  mockPriceCategories = [
+    ...mockPriceCategories,
+    {
+      ...newCategory,
+      id: `cat-${Date.now()}`,
+      createdAt: new Date(),
+    },
+  ];
+};
+
+export const updatePriceCategory = (categoryId: string, updates: Partial<PriceCategory>) => {
+  mockPriceCategories = mockPriceCategories.map(cat =>
+    cat.id === categoryId ? { ...cat, ...updates } : cat
+  );
+};
+
+export const deletePriceCategory = (categoryId: string) => {
+  mockPriceCategories = mockPriceCategories.filter(cat => cat.id !== categoryId);
+};
+
+export const calculateFlexibleQuote = (selectedItems: string[]): number => {
+  let total = 0;
+  
+  selectedItems.forEach(itemId => {
+    mockPriceCategories.forEach(category => {
+      const item = category.items.find(i => i.id === itemId);
+      if (item) {
+        total += item.basePrice;
+      }
+    });
+  });
+  
+  return total;
+};
+
+// ==================== FUNCIONES HELPER - MENSAJES ====================
 
 export function formatMessageTemplate(
   template: string,

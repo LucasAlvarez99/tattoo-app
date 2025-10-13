@@ -11,6 +11,10 @@ import MainTabs from './src/navigation/MainTabs';
 import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
 import NewClientScreen from './src/screens/NewClientScreen';
 import QuoteScreen from './src/screens/QuoteScreen';
+import ClientDetailScreen from './src/screens/ClientDetailScreen';
+import FolderDetailScreen from './src/screens/FolderDetailScreen';
+import PriceManagementScreen from './src/screens/PriceManagementScreen';
+import ExportPDFScreen from './src/screens/ExportPDFScreen';
 import { mockAuth } from './src/lib/mockAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -83,6 +87,34 @@ export default function App() {
                 options={{ 
                   title: 'Cotizar Tatuaje',
                   presentation: 'modal',
+                }}
+              />
+              <Stack.Screen 
+                name="ClientDetail" 
+                component={ClientDetailScreen}
+                options={{ 
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen 
+                name="FolderDetail" 
+                component={FolderDetailScreen}
+                options={{ 
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen 
+                name="PriceManagement" 
+                component={PriceManagementScreen}
+                options={{ 
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen 
+                name="ExportPDF" 
+                component={ExportPDFScreen}
+                options={{ 
+                  headerShown: false,
                 }}
               />
             </>

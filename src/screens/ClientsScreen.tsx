@@ -1,4 +1,3 @@
-// ===== ClientsScreen.tsx =====
 import React, { useState } from 'react';
 import {
   View,
@@ -8,10 +7,23 @@ import {
   StyleSheet,
   FlatList,
 } from 'react-native';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockClients, Client } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
-export default function ClientsScreen() {
+type ClientsScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'ClientsTab'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+type Props = {
+  navigation: ClientsScreenNavigationProp;
+};
+
+export default function ClientsScreen({ navigation }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredClients = mockClients.filter(client =>
@@ -20,7 +32,10 @@ export default function ClientsScreen() {
   );
 
   const renderClient = ({ item }: { item: Client }) => (
-    <TouchableOpacity style={styles.clientCard}>
+    <TouchableOpacity 
+      style={styles.clientCard}
+      onPress={() => navigation.navigate('ClientDetail', { clientId: item.id })}
+    >
       <View style={styles.clientAvatar}>
         <Text style={styles.clientAvatarText}>
           {item.fullName.charAt(0).toUpperCase()}
@@ -43,7 +58,10 @@ export default function ClientsScreen() {
     <SafeScreen edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.title}>Clientes</Text>
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => navigation.navigate('NewClient')}
+        >
           <Text style={styles.addButtonText}>+ Nuevo</Text>
         </TouchableOpacity>
       </View>
@@ -230,6 +248,3 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 });
-
-
-// ===== ProfileScreen.tsx =====

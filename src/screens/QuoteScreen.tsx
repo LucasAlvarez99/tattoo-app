@@ -10,30 +10,27 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { mockPriceCategories, calculateQuote } from '../lib/mockData';
+import { mockPriceCategories, calculateFlexibleQuote } from '../lib/mockData';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuoteScreen'>;
 
 export default function QuoteScreen({ navigation }: Props) {
-  const [selectedSize, setSelectedSize] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState('');
-  const [selectedZone, setSelectedZone] = useState('');
-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [customAdjustment, setCustomAdjustment] = useState('');
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
 
-  const sizeCategory = mockPriceCategories.find(c => c.id === 'size');
-  const styleCategory = mockPriceCategories.find(c => c.id === 'style');
-  const zoneCategory = mockPriceCategories.find(c => c.id === 'zone');
-  const extrasCategory = mockPriceCategories.find(c => c.id === 'extras');
+  // Solo mostrar categorías activas con items activos
+  const activeCategories = mockPriceCategories.filter(
+    cat => cat.isActive && cat.items.some(item => item.isActive)
+  );
 
   const handleCalculate = () => {
-    if (!selectedSize || !selectedStyle || !selectedZone) {
-      Alert.alert('Error', 'Por favor seleccioná tamaño, estilo y zona');
+    if (selectedItems.length === 0) {
+      Alert.alert('Seleccioná al menos un precio', 'Elegí uno o más ítems para cotizar');
       return;
     }
 
-    let price = calculateQuote(selectedSize, selectedStyle, selectedZone, selectedExtras);
+    let price = calculateFlexibleQuote(selectedItems);
     
     // Ajuste manual
     if (customAdjustment) {
@@ -47,19 +44,16 @@ export default function QuoteScreen({ navigation }: Props) {
   };
 
   const handleReset = () => {
-    setSelectedSize('');
-    setSelectedStyle('');
-    setSelectedZone('');
-    setSelectedExtras([]);
+    setSelectedItems([]);
     setCustomAdjustment('');
     setCalculatedPrice(null);
   };
 
-  const toggleExtra = (extraId: string) => {
-    if (selectedExtras.includes(extraId)) {
-      setSelectedExtras(selectedExtras.filter(id => id !== extraId));
+  const toggleItem = (itemId: string) => {
+    if (selectedItems.includes(itemId)) {
+      setSelectedItems(selectedItems.filter(id => id !== itemId));
     } else {
-      setSelectedExtras([...selectedExtras, extraId]);
+      setSelectedItems([...selectedItems, itemId]);
     }
   };
 
@@ -77,9 +71,7 @@ export default function QuoteScreen({ navigation }: Props) {
         {
           text: 'Sí, crear',
           onPress: () => {
-            // ✅ CORREGIDO: Primero hacemos goBack y luego navegamos
             navigation.goBack();
-            // Usamos setTimeout para asegurar que la navegación ocurra después del goBack
             setTimeout(() => {
               navigation.navigate('NewAppointment', {});
             }, 100);
@@ -89,199 +81,158 @@ export default function QuoteScreen({ navigation }: Props) {
     );
   };
 
+  const getSelectedItemsDetails = () => {
+    const details: string[] = [];
+    selectedItems.forEach(itemId => {
+      mockPriceCategories.forEach(category => {
+        const item = category.items.find(i => i.id === itemId);
+        if (item) {
+          details.push(`${item.name} - $${item.basePrice.toLocaleString()}`);
+        }
+      });
+    });
+    return details;
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        {/* Tamaño */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Tamaño *</Text>
-          {sizeCategory?.items.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.optionCard,
-                selectedSize === item.id && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedSize(item.id)}
-            >
-              <View style={styles.optionInfo}>
-                <Text style={[
-                  styles.optionName,
-                  selectedSize === item.id && styles.optionNameSelected,
-                ]}>
-                  {item.name}
-                </Text>
-                {item.description && (
-                  <Text style={styles.optionDescription}>{item.description}</Text>
-                )}
-              </View>
-              <Text style={styles.optionPrice}>${item.basePrice.toLocaleString()}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Estilo */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Estilo *</Text>
-          {styleCategory?.items.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.optionCard,
-                selectedStyle === item.id && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedStyle(item.id)}
-            >
-              <View style={styles.optionInfo}>
-                <Text style={[
-                  styles.optionName,
-                  selectedStyle === item.id && styles.optionNameSelected,
-                ]}>
-                  {item.name}
-                </Text>
-                {item.description && (
-                  <Text style={styles.optionDescription}>{item.description}</Text>
-                )}
-              </View>
-              {item.modifier > 0 && (
-                <Text style={styles.optionModifier}>+{item.modifier * 100}%</Text>
-              )}
-              {item.modifier === 0 && (
-                <Text style={styles.optionBase}>Base</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Zona */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Zona del Cuerpo *</Text>
-          {zoneCategory?.items.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.optionCard,
-                selectedZone === item.id && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedZone(item.id)}
-            >
-              <View style={styles.optionInfo}>
-                <Text style={[
-                  styles.optionName,
-                  selectedZone === item.id && styles.optionNameSelected,
-                ]}>
-                  {item.name}
-                </Text>
-                {item.description && (
-                  <Text style={styles.optionDescription}>{item.description}</Text>
-                )}
-              </View>
-              {item.basePrice > 0 ? (
-                <Text style={styles.optionPrice}>+${item.basePrice.toLocaleString()}</Text>
-              ) : (
-                <Text style={styles.optionBase}>Incluido</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Extras */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Extras (Opcional)</Text>
-          {extrasCategory?.items.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.optionCard,
-                selectedExtras.includes(item.id) && styles.optionCardSelected,
-              ]}
-              onPress={() => toggleExtra(item.id)}
-            >
-              <View style={styles.optionInfo}>
-                <Text style={[
-                  styles.optionName,
-                  selectedExtras.includes(item.id) && styles.optionNameSelected,
-                ]}>
-                  {item.name}
-                </Text>
-                {item.description && (
-                  <Text style={styles.optionDescription}>{item.description}</Text>
-                )}
-              </View>
-              {item.basePrice > 0 ? (
-                <Text style={styles.optionPrice}>+${item.basePrice.toLocaleString()}</Text>
-              ) : (
-                <Text style={styles.optionFree}>Gratis</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Ajuste manual */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Ajuste Manual (Opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ej: +5000 o -3000"
-            placeholderTextColor="#999"
-            value={customAdjustment}
-            onChangeText={setCustomAdjustment}
-            keyboardType="numeric"
-          />
-          <Text style={styles.hint}>
-            Agregá o restá un monto para ajustar el precio final
+        {/* Header Info */}
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerIcon}>💰</Text>
+          <Text style={styles.headerTitle}>Cotizador Flexible</Text>
+          <Text style={styles.headerSubtitle}>
+            Seleccioná uno o más precios de tus categorías personalizadas
           </Text>
         </View>
 
+        {activeCategories.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>📋</Text>
+            <Text style={styles.emptyStateText}>No hay precios configurados</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Configurá tus precios en el perfil para poder cotizar
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => {
+                navigation.goBack();
+                navigation.navigate('MainTabs', {
+                  screen: 'ProfileTab',
+                });
+              }}
+            >
+              <Text style={styles.emptyButtonText}>Ir a configurar precios</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Categorías y precios */}
+        {activeCategories.map((category, catIndex) => (
+          <View key={category.id} style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {catIndex + 1}. {category.name}
+            </Text>
+            {category.description && (
+              <Text style={styles.sectionDescription}>{category.description}</Text>
+            )}
+
+            {category.items
+              .filter(item => item.isActive)
+              .map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.optionCard,
+                    selectedItems.includes(item.id) && styles.optionCardSelected,
+                  ]}
+                  onPress={() => toggleItem(item.id)}
+                >
+                  <View style={styles.optionInfo}>
+                    <Text
+                      style={[
+                        styles.optionName,
+                        selectedItems.includes(item.id) && styles.optionNameSelected,
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    {item.description && (
+                      <Text style={styles.optionDescription}>{item.description}</Text>
+                    )}
+                  </View>
+                  <View style={styles.optionRight}>
+                    <Text style={styles.optionPrice}>
+                      ${item.basePrice.toLocaleString()}
+                    </Text>
+                    {selectedItems.includes(item.id) && (
+                      <View style={styles.checkMark}>
+                        <Text style={styles.checkMarkText}>✓</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+          </View>
+        ))}
+
+        {/* Ajuste manual */}
+        {activeCategories.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {activeCategories.length + 1}. Ajuste Manual (Opcional)
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: +5000 o -3000"
+              placeholderTextColor="#999"
+              value={customAdjustment}
+              onChangeText={setCustomAdjustment}
+              keyboardType="numeric"
+            />
+            <Text style={styles.hint}>
+              Agregá o restá un monto para ajustar el precio final
+            </Text>
+          </View>
+        )}
+
         {/* Botones de acción */}
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-            <Text style={styles.resetButtonText}>🔄 Reiniciar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.calculateButton} onPress={handleCalculate}>
-            <Text style={styles.calculateButtonText}>💰 Calcular</Text>
-          </TouchableOpacity>
-        </View>
+        {activeCategories.length > 0 && (
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+              <Text style={styles.resetButtonText}>🔄 Reiniciar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.calculateButton} onPress={handleCalculate}>
+              <Text style={styles.calculateButtonText}>💰 Calcular</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Resultado */}
         {calculatedPrice !== null && (
           <View style={styles.resultCard}>
             <Text style={styles.resultLabel}>Precio Total</Text>
-            <Text style={styles.resultPrice}>
-              ${calculatedPrice.toLocaleString()}
-            </Text>
+            <Text style={styles.resultPrice}>${calculatedPrice.toLocaleString()}</Text>
 
             <View style={styles.resultDivider} />
 
-            <Text style={styles.resultDetailsTitle}>Detalles:</Text>
-            {selectedSize && (
-              <Text style={styles.resultDetail}>
-                • {sizeCategory?.items.find(i => i.id === selectedSize)?.name}
+            <Text style={styles.resultDetailsTitle}>Detalles de la cotización:</Text>
+            {getSelectedItemsDetails().map((detail, index) => (
+              <Text key={index} style={styles.resultDetail}>
+                • {detail}
               </Text>
-            )}
-            {selectedStyle && (
-              <Text style={styles.resultDetail}>
-                • {styleCategory?.items.find(i => i.id === selectedStyle)?.name}
-              </Text>
-            )}
-            {selectedZone && (
-              <Text style={styles.resultDetail}>
-                • {zoneCategory?.items.find(i => i.id === selectedZone)?.name}
-              </Text>
-            )}
-            {selectedExtras.length > 0 && selectedExtras.map(extraId => {
-              const extra = extrasCategory?.items.find(i => i.id === extraId);
-              return extra ? (
-                <Text key={extraId} style={styles.resultDetail}>
-                  • {extra.name}
-                </Text>
-              ) : null;
-            })}
-            {customAdjustment && (
+            ))}
+
+            {customAdjustment && parseFloat(customAdjustment) !== 0 && (
               <Text style={styles.resultDetail}>
                 • Ajuste manual: ${parseFloat(customAdjustment).toLocaleString()}
               </Text>
             )}
+
+            <View style={styles.resultSummary}>
+              <Text style={styles.resultSummaryLabel}>Items seleccionados:</Text>
+              <Text style={styles.resultSummaryValue}>{selectedItems.length}</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.appointmentButton}
@@ -291,16 +242,25 @@ export default function QuoteScreen({ navigation }: Props) {
                 📅 Crear cita con esta cotización
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={() => Alert.alert('Compartir', 'Funcionalidad próximamente')}
+            >
+              <Text style={styles.shareButtonText}>📤 Compartir cotización</Text>
+            </TouchableOpacity>
           </View>
         )}
 
         {/* Info */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoIcon}>💡</Text>
-          <Text style={styles.infoText}>
-            Esta es una estimación basada en tu lista de precios. Podés ajustarla manualmente antes de crear la cita.
-          </Text>
-        </View>
+        {activeCategories.length > 0 && (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoIcon}>💡</Text>
+            <Text style={styles.infoText}>
+              Seleccioná todos los ítems que apliquen para tu tatuaje. El precio final será la suma de todos.
+            </Text>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </View>
@@ -316,6 +276,29 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  headerInfo: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
   section: {
     marginBottom: 32,
   },
@@ -323,6 +306,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000',
+    marginBottom: 8,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: '#666',
     marginBottom: 12,
   },
   optionCard: {
@@ -357,25 +345,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
+  optionRight: {
+    alignItems: 'flex-end',
+  },
   optionPrice: {
     fontSize: 16,
     fontWeight: '700',
     color: '#059669',
+    marginBottom: 4,
   },
-  optionModifier: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#f59e0b',
+  checkMark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  optionBase: {
+  checkMarkText: {
+    color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  optionFree: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10b981',
+    fontWeight: 'bold',
   },
   input: {
     borderWidth: 1,
@@ -456,6 +446,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
+    lineHeight: 20,
+  },
+  resultSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#d1fae5',
+  },
+  resultSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+  },
+  resultSummaryValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#059669',
   },
   appointmentButton: {
     backgroundColor: '#000',
@@ -467,6 +476,18 @@ const styles = StyleSheet.create({
   appointmentButtonText: {
     fontSize: 15,
     color: '#fff',
+    fontWeight: '600',
+  },
+  shareButton: {
+    backgroundColor: '#f3f4f6',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  shareButtonText: {
+    fontSize: 14,
+    color: '#000',
     fontWeight: '600',
   },
   infoBox: {
@@ -485,5 +506,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0369a1',
     lineHeight: 18,
+  },
+  emptyState: {
+    padding: 48,
+    alignItems: 'center',
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

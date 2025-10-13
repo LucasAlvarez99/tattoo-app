@@ -9,11 +9,24 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mockFolders, mockDesigns, DesignFolder } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
-export default function CatalogScreen() {
+type CatalogScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'CatalogTab'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+type Props = {
+  navigation: CatalogScreenNavigationProp;
+};
+
+export default function CatalogScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [folders, setFolders] = useState<DesignFolder[]>(mockFolders);
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
@@ -76,6 +89,11 @@ export default function CatalogScreen() {
   const renderFolder = ({ item }: { item: DesignFolder }) => (
     <TouchableOpacity 
       style={styles.folderCard}
+      onPress={() => navigation.navigate('FolderDetail', {
+        folderId: item.id,
+        folderName: item.name,
+        folderColor: item.color,
+      })}
       onLongPress={() => handleDeleteFolder(item.id, item.name)}
     >
       <View style={[styles.folderIcon, { backgroundColor: item.color }]}>
@@ -214,15 +232,6 @@ export default function CatalogScreen() {
           </View>
         </View>
       </Modal>
-
-      {folders.length > 0 && (
-        <TouchableOpacity 
-          style={[styles.fab, { bottom: 80 + insets.bottom }]}
-          onPress={() => Alert.alert('Función próximamente', 'Agregar diseño a carpeta')}
-        >
-          <Text style={styles.fabText}>+ Diseño</Text>
-        </TouchableOpacity>
-      )}
     </SafeScreen>
   );
 }
@@ -360,24 +369,6 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    backgroundColor: '#000',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  fabText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
   },
   modalOverlay: {

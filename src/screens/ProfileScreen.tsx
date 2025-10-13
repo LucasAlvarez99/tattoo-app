@@ -11,6 +11,10 @@ import {
   Switch,
   Linking,
 } from 'react-native';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
 import { 
   mockStudioData, 
@@ -22,9 +26,17 @@ import {
 } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
-type ModalType = 'none' | 'studio' | 'prices' | 'messages';
+type ProfileScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'ProfileTab'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
-// ✅ CORREGIDO: Agregado tipo para MenuItem props
+type Props = {
+  navigation: ProfileScreenNavigationProp;
+};
+
+type ModalType = 'none' | 'studio' | 'messages';
+
 interface MenuItemProps {
   icon: string;
   title: string;
@@ -34,7 +46,7 @@ interface MenuItemProps {
   badge?: string | number;
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: Props) {
   const user = mockAuth.getUser();
   const [activeModal, setActiveModal] = useState<ModalType>('none');
   const [studioData, setStudioData] = useState<StudioData>(mockStudioData);
@@ -99,7 +111,7 @@ export default function ProfileScreen() {
         {
           text: 'Enviar por WhatsApp',
           onPress: () => {
-            const phone = '+5491112345678'; // Ejemplo
+            const phone = '+5491112345678';
             const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
             Linking.openURL(url).catch(() => {
               Alert.alert('Error', 'No se pudo abrir WhatsApp');
@@ -120,7 +132,6 @@ export default function ProfileScreen() {
     setEditingTemplate({ ...editingTemplate, channels });
   };
 
-  // ✅ CORREGIDO: MenuItem ahora tiene el tipo correcto
   const MenuItem = ({ icon, title, subtitle, onPress, danger, badge }: MenuItemProps) => (
     <TouchableOpacity 
       style={styles.menuItem}
@@ -205,8 +216,10 @@ export default function ProfileScreen() {
             icon="💵"
             title="Lista de precios"
             subtitle="Gestionar precios y categorías"
-            badge={mockPriceCategories.reduce((sum, cat) => sum + cat.items.length, 0)}
-            onPress={() => setActiveModal('prices')}
+            badge={mockPriceCategories.reduce((sum, cat) => 
+              sum + cat.items.filter(i => i.isActive).length, 0
+            )}
+            onPress={() => navigation.navigate('PriceManagement')}
           />
           <MenuItem
             icon="💬"
@@ -214,6 +227,12 @@ export default function ProfileScreen() {
             subtitle="Plantillas de WhatsApp, Email e Instagram"
             badge={messageTemplates.filter(t => t.enabled).length}
             onPress={() => setActiveModal('messages')}
+          />
+          <MenuItem
+            icon="📄"
+            title="Exportar agenda a PDF"
+            subtitle="Generar PDF para imprimir o compartir"
+            onPress={() => navigation.navigate('ExportPDF')}
           />
         </View>
 
@@ -358,54 +377,6 @@ export default function ProfileScreen() {
                 textAlignVertical="top"
                 placeholder="Breve descripción de tu estudio..."
               />
-            </View>
-          </ScrollView>
-        </SafeScreen>
-      </Modal>
-
-      {/* Modal Lista de Precios */}
-      <Modal
-        visible={activeModal === 'prices'}
-        animationType="slide"
-        onRequestClose={() => setActiveModal('none')}
-      >
-        <SafeScreen>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setActiveModal('none')}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Lista de Precios</Text>
-            <View style={{ width: 60 }} />
-          </View>
-          <ScrollView style={styles.modalScroll}>
-            <View style={styles.modalContent}>
-              {mockPriceCategories.map(category => (
-                <View key={category.id} style={styles.priceCategory}>
-                  <Text style={styles.priceCategoryTitle}>{category.name}</Text>
-                  {category.items.map(item => (
-                    <View key={item.id} style={styles.priceItem}>
-                      <View style={styles.priceItemInfo}>
-                        <Text style={styles.priceItemName}>{item.name}</Text>
-                        {item.description && (
-                          <Text style={styles.priceItemDesc}>{item.description}</Text>
-                        )}
-                      </View>
-                      <Text style={styles.priceItemValue}>
-                        {item.basePrice > 0 && `$${item.basePrice.toLocaleString()}`}
-                        {item.modifier > 0 && `+${item.modifier * 100}%`}
-                        {item.basePrice === 0 && item.modifier === 0 && 'Incluido'}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
-              
-              <View style={styles.infoBox}>
-                <Text style={styles.infoIcon}>💡</Text>
-                <Text style={styles.infoText}>
-                  Próximamente podrás editar estos precios. Por ahora, esta es tu lista de precios estándar.
-                </Text>
-              </View>
             </View>
           </ScrollView>
         </SafeScreen>
@@ -841,52 +812,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  priceCategory: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  priceCategoryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 12,
-  },
-  priceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  priceItemInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  priceItemName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 2,
-  },
-  priceItemDesc: {
-    fontSize: 12,
-    color: '#666',
-  },
-  priceItemValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#059669',
-  },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: '#f0f9ff',
     padding: 12,
     borderRadius: 8,
     alignItems: 'flex-start',
-    marginTop: 8,
+    marginBottom: 16,
   },
   infoIcon: {
     fontSize: 20,

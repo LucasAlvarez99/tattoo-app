@@ -17,6 +17,7 @@ export type RootStackParamList = {
   };
   PriceManagement: undefined;
   ExportPDF: undefined;
+  NotificationManagement: undefined;
 };
 
 // Tipos para el Tab Navigator

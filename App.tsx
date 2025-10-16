@@ -15,6 +15,7 @@ import ClientDetailScreen from './src/screens/ClientDetailScreen';
 import FolderDetailScreen from './src/screens/FolderDetailScreen';
 import PriceManagementScreen from './src/screens/PriceManagementScreen';
 import ExportPDFScreen from './src/screens/ExportPDFScreen';
+import NotificationManagementScreen from './src/screens/NotificationManagementScreen';
 import { mockAuth } from './src/lib/mockAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -113,6 +114,13 @@ export default function App() {
               <Stack.Screen 
                 name="ExportPDF" 
                 component={ExportPDFScreen}
+                options={{ 
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen 
+                name="NotificationManagement" 
+                component={NotificationManagementScreen}
                 options={{ 
                   headerShown: false,
                 }}

@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { DesignImage } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
+import * as ImagePicker from 'expo-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FolderDetail'>;
 
@@ -30,20 +31,78 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
   const [newDesignName, setNewDesignName] = useState('');
   const [newDesignNotes, setNewDesignNotes] = useState('');
   const [newDesignPrice, setNewDesignPrice] = useState('');
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
-  // Simulación de seleccionar imagen (en producción usarías expo-image-picker)
+  // Solicitar permisos
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galería para agregar fotos');
+      return false;
+    }
+    return true;
+  };
+
+  // Seleccionar imagen de la galería
+  const pickImageFromGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImageUri(result.assets[0].uri);
+        setShowAddModal(true);
+      }
+    } catch (error) {
+      console.error('Error seleccionando imagen:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  };
+
+  // Tomar foto con la cámara
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso denegado', 'Necesitamos acceso a tu cámara');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImageUri(result.assets[0].uri);
+        setShowAddModal(true);
+      }
+    } catch (error) {
+      console.error('Error tomando foto:', error);
+      Alert.alert('Error', 'No se pudo tomar la foto');
+    }
+  };
+
   const handlePickImage = () => {
     Alert.alert(
       'Seleccionar imagen',
-      'En producción, aquí se abriría la galería o cámara',
+      '¿De dónde quieres agregar la imagen?',
       [
         {
           text: 'Galería',
-          onPress: () => mockAddImage('gallery'),
+          onPress: () => pickImageFromGallery(),
         },
         {
           text: 'Cámara',
-          onPress: () => mockAddImage('camera'),
+          onPress: () => takePhoto(),
         },
         {
           text: 'Cancelar',
@@ -53,12 +112,16 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
     );
   };
 
-  const mockAddImage = (source: 'gallery' | 'camera') => {
-    // Simulamos una imagen con placeholder
+  const handleSaveDesign = () => {
+    if (!selectedImageUri) {
+      Alert.alert('Error', 'Primero selecciona una imagen');
+      return;
+    }
+
     const newDesign: DesignImage = {
       id: Date.now().toString(),
       folderId,
-      uri: `https://picsum.photos/400/400?random=${Date.now()}`,
+      uri: selectedImageUri,
       name: newDesignName || undefined,
       notes: newDesignNotes || undefined,
       referencePrice: newDesignPrice ? parseFloat(newDesignPrice) : undefined,
@@ -70,8 +133,9 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
     setNewDesignName('');
     setNewDesignNotes('');
     setNewDesignPrice('');
+    setSelectedImageUri(null);
     
-    Alert.alert('✅ Imagen agregada', `Se agregó el diseño desde ${source === 'gallery' ? 'galería' : 'cámara'}`);
+    Alert.alert('✅ Imagen agregada', 'El diseño se agregó correctamente');
   };
 
   const handleDeleteDesign = (designId: string) => {
@@ -164,70 +228,104 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
         visible={showAddModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={() => {
+          setShowAddModal(false);
+          setSelectedImageUri(null);
+          setNewDesignName('');
+          setNewDesignNotes('');
+          setNewDesignPrice('');
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Nuevo Diseño</Text>
 
-            <TouchableOpacity
-              style={styles.imagePickerButton}
-              onPress={handlePickImage}
-            >
-              <Text style={styles.imagePickerIcon}>📷</Text>
-              <Text style={styles.imagePickerText}>Seleccionar imagen</Text>
-            </TouchableOpacity>
+            {selectedImageUri ? (
+              <>
+                <View style={styles.imagePreview}>
+                  <Image
+                    source={{ uri: selectedImageUri }}
+                    style={styles.previewImage}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={styles.changeImageButton}
+                    onPress={handlePickImage}
+                  >
+                    <Text style={styles.changeImageText}>Cambiar imagen</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <Text style={styles.inputLabel}>Nombre (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: Dragón tribal"
-              placeholderTextColor="#999"
-              value={newDesignName}
-              onChangeText={setNewDesignName}
-            />
+                <Text style={styles.inputLabel}>Nombre (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Dragón tribal"
+                  placeholderTextColor="#999"
+                  value={newDesignName}
+                  onChangeText={setNewDesignName}
+                />
 
-            <Text style={styles.inputLabel}>Notas (opcional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Detalles del diseño..."
-              placeholderTextColor="#999"
-              value={newDesignNotes}
-              onChangeText={setNewDesignNotes}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
+                <Text style={styles.inputLabel}>Notas (opcional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Detalles del diseño..."
+                  placeholderTextColor="#999"
+                  value={newDesignNotes}
+                  onChangeText={setNewDesignNotes}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
 
-            <Text style={styles.inputLabel}>Precio referencia (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="25000"
-              placeholderTextColor="#999"
-              value={newDesignPrice}
-              onChangeText={setNewDesignPrice}
-              keyboardType="numeric"
-            />
+                <Text style={styles.inputLabel}>Precio referencia (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="25000"
+                  placeholderTextColor="#999"
+                  value={newDesignPrice}
+                  onChangeText={setNewDesignPrice}
+                  keyboardType="numeric"
+                />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowAddModal(false);
-                  setNewDesignName('');
-                  setNewDesignNotes('');
-                  setNewDesignPrice('');
-                }}
-              >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalCreateButton}
-                onPress={handlePickImage}
-              >
-                <Text style={styles.modalCreateText}>Continuar</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalCancelButton}
+                    onPress={() => {
+                      setShowAddModal(false);
+                      setSelectedImageUri(null);
+                      setNewDesignName('');
+                      setNewDesignNotes('');
+                      setNewDesignPrice('');
+                    }}
+                  >
+                    <Text style={styles.modalCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalCreateButton}
+                    onPress={handleSaveDesign}
+                  >
+                    <Text style={styles.modalCreateText}>Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.imagePickerButton}
+                  onPress={handlePickImage}
+                >
+                  <Text style={styles.imagePickerIcon}>📷</Text>
+                  <Text style={styles.imagePickerText}>Seleccionar imagen</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowAddModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -465,6 +563,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#666',
+  },
+  imagePreview: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  changeImageButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+  },
+  changeImageText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
   },
   inputLabel: {
     fontSize: 14,

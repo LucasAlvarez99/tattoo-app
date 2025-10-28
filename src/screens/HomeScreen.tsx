@@ -1,22 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
 import { mockAuth } from '../lib/mockAuth';
-import { 
-  mockAppointments,  // ✅ AGREGADO: Import que faltaba
-  getTodayAppointments, 
-  getUpcomingAppointments, 
-  getPendingAppointments 
-} from '../lib/mockData';
+import { getTodayAppointments, getUpcomingAppointments } from '../lib/appointmentService';
+import { Appointment } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
 type HomeScreenNavigationProp = CompositeNavigationProp<
@@ -30,14 +27,47 @@ type Props = {
 
 export default function HomeScreen({ navigation }: Props) {
   const user = mockAuth.getUser();
-  
-  const todayAppointments = getTodayAppointments();
-  const upcomingAppointments = getUpcomingAppointments(3);
-  const pendingAppointments = getPendingAppointments();
+  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [totalEstimated, setTotalEstimated] = useState(0);
+
+  // Cargar datos cuando la pantalla se enfoca
+  useFocusEffect(
+    useCallback(() => {
+      loadAppointments();
+    }, [])
+  );
+
+  const loadAppointments = async () => {
+    try {
+      const today = await getTodayAppointments();
+      const upcoming = await getUpcomingAppointments(3);
+      
+      setTodayAppointments(today);
+      setUpcomingAppointments(upcoming);
+      
+      // Calcular total estimado
+      const total = [...today, ...upcoming].reduce((sum, apt) => sum + (apt.price || 0), 0);
+      setTotalEstimated(total);
+    } catch (error) {
+      console.error('Error cargando citas:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAppointments();
+    setRefreshing(false);
+  };
 
   const daysUntilTrialEnd = user?.trialEndsAt 
     ? Math.ceil((user.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0;
+
+  const pendingCount = todayAppointments.filter(a => 
+    a.status === 'pending' || a.status === 'confirmed'
+  ).length;
 
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
@@ -45,6 +75,9 @@ export default function HomeScreen({ navigation }: Props) {
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Header compacto */}
         <View style={styles.header}>
@@ -75,12 +108,12 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.statLabel}>Hoy</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{pendingAppointments.length}</Text>
+            <Text style={styles.statNumber}>{pendingCount}</Text>
             <Text style={styles.statLabel}>Pendientes</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              ${Math.floor(mockAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0) / 1000)}k
+              ${Math.floor(totalEstimated / 1000)}k
             </Text>
             <Text style={styles.statLabel}>Estimado</Text>
           </View>
@@ -102,9 +135,14 @@ export default function HomeScreen({ navigation }: Props) {
                   <Text style={styles.clientName} numberOfLines={1}>
                     {apt.clientName}
                   </Text>
-                  <Text style={styles.price}>${apt.price?.toLocaleString()}</Text>
+                  {apt.price && (
+                    <Text style={styles.price}>${apt.price.toLocaleString()}</Text>
+                  )}
                 </View>
-                <View style={[styles.badge, apt.status === 'confirmed' ? styles.badgeConfirmed : styles.badgePending]}>
+                <View style={[
+                  styles.badge, 
+                  apt.status === 'confirmed' ? styles.badgeConfirmed : styles.badgePending
+                ]}>
                   <Text style={styles.badgeText}>
                     {apt.status === 'confirmed' ? '✓' : '○'}
                   </Text>

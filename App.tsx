@@ -17,24 +17,54 @@ import PriceManagementScreen from './src/screens/PriceManagementScreen';
 import ExportPDFScreen from './src/screens/ExportPDFScreen';
 import NotificationManagementScreen from './src/screens/NotificationManagementScreen';
 import { mockAuth } from './src/lib/mockAuth';
+import { mockAppointments, mockClients } from './src/lib/mockData';
+import { initializeAppointments } from './src/lib/appointmentService';
+import { initializeClients } from './src/lib/clientService';
+import { initializeCatalog } from './src/lib/catalogService';
+import { setupNotificationListeners, refreshAllNotifications } from './src/lib/notificationScheduler';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    mockAuth.initialize();
-    setIsAuthenticated(mockAuth.isAuthenticated());
-
-    const unsubscribe = mockAuth.onAuthStateChange((user) => {
-      setIsAuthenticated(!!user);
-    });
-
-    return () => unsubscribe();
+    initializeApp();
   }, []);
 
-  if (isAuthenticated === null) {
+  const initializeApp = async () => {
+    try {
+      // Inicializar autenticación
+      mockAuth.initialize();
+      setIsAuthenticated(mockAuth.isAuthenticated());
+
+      // Inicializar datos locales
+      await initializeAppointments(mockAppointments);
+      await initializeClients(mockClients);
+      await initializeCatalog();
+
+      // Configurar listeners de notificaciones
+      setupNotificationListeners();
+
+      // Refrescar notificaciones programadas
+      await refreshAllNotifications();
+
+      setIsInitialized(true);
+
+      // Listener de cambios de autenticación
+      const unsubscribe = mockAuth.onAuthStateChange((user) => {
+        setIsAuthenticated(!!user);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error inicializando app:', error);
+      setIsInitialized(true); // Continuar aunque haya error
+    }
+  };
+
+  if (isAuthenticated === null || !isInitialized) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#000" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,34 +11,115 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { mockClients } from '../lib/mockData';
+import { getAllClients, ExtendedClient } from '../lib/clientService';
+import { createAppointment } from '../lib/appointmentService';
+import { scheduleAppointmentNotification } from '../lib/notificationScheduler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewAppointment'>;
 
 export default function NewAppointmentScreen({ navigation, route }: Props) {
+  const [clients, setClients] = useState<ExtendedClient[]>([]);
   const [selectedClient, setSelectedClient] = useState(route.params?.clientId || '');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('60');
   const [notes, setNotes] = useState('');
   const [price, setPrice] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    const clientsList = await getAllClients();
+    setClients(clientsList);
+  };
+
+  const parseDateTime = (dateStr: string, timeStr: string): Date | null => {
+    try {
+      // Formato esperado: DD/MM/YYYY y HH:MM
+      const dateParts = dateStr.split('/');
+      const timeParts = timeStr.split(':');
+      
+      if (dateParts.length !== 3 || timeParts.length !== 2) {
+        return null;
+      }
+
+      const day = parseInt(dateParts[0]);
+      const month = parseInt(dateParts[1]) - 1; // Mes en JS es 0-11
+      const year = parseInt(dateParts[2]);
+      const hours = parseInt(timeParts[0]);
+      const minutes = parseInt(timeParts[1]);
+
+      const appointmentDate = new Date(year, month, day, hours, minutes);
+      
+      // Validar que la fecha sea válida
+      if (isNaN(appointmentDate.getTime())) {
+        return null;
+      }
+
+      return appointmentDate;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const handleSave = async () => {
     if (!selectedClient || !date || !time) {
-      Alert.alert('Error', 'Por favor completá los campos requeridos');
+      Alert.alert('Error', 'Por favor completá cliente, fecha y hora');
       return;
     }
 
-    Alert.alert(
-      '✅ Cita creada',
-      'La cita se creó correctamente',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
+    const appointmentDate = parseDateTime(date, time);
+    if (!appointmentDate) {
+      Alert.alert('Error', 'Formato de fecha u hora inválido. Usá DD/MM/YYYY y HH:MM');
+      return;
+    }
+
+    // Validar que la fecha no sea en el pasado
+    if (appointmentDate < new Date()) {
+      Alert.alert('Error', 'No podés agendar una cita en el pasado');
+      return;
+    }
+
+    const client = clients.find(c => c.id === selectedClient);
+    if (!client) {
+      Alert.alert('Error', 'Cliente no encontrado');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const appointment = await createAppointment({
+        clientId: client.id,
+        clientName: client.fullName,
+        date: appointmentDate,
+        durationMinutes: parseInt(duration),
+        status: 'pending',
+        notes: notes.trim() || undefined,
+        price: price ? parseFloat(price) : undefined,
+      });
+
+      // Programar notificación
+      await scheduleAppointmentNotification(appointment);
+
+      Alert.alert(
+        '✅ Cita creada',
+        `La cita con ${client.fullName} se creó correctamente para el ${appointmentDate.toLocaleDateString('es-AR')} a las ${appointmentDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}.\n\nRecibirás una notificación 1 hora antes.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error creando cita:', error);
+      Alert.alert('Error', 'No se pudo crear la cita');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,30 +128,36 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
         {/* Selector de cliente */}
         <View style={styles.section}>
           <Text style={styles.label}>Cliente *</Text>
-          <View style={styles.clientSelector}>
-            {mockClients.map(client => (
-              <TouchableOpacity
-                key={client.id}
-                style={[
-                  styles.clientChip,
-                  selectedClient === client.id && styles.clientChipSelected,
-                ]}
-                onPress={() => setSelectedClient(client.id)}
-              >
-                <Text
+          {clients.length > 0 ? (
+            <View style={styles.clientSelector}>
+              {clients.map(client => (
+                <TouchableOpacity
+                  key={client.id}
                   style={[
-                    styles.clientChipText,
-                    selectedClient === client.id && styles.clientChipTextSelected,
+                    styles.clientChip,
+                    selectedClient === client.id && styles.clientChipSelected,
                   ]}
+                  onPress={() => setSelectedClient(client.id)}
+                  disabled={loading}
                 >
-                  {client.fullName}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.clientChipText,
+                      selectedClient === client.id && styles.clientChipTextSelected,
+                    ]}
+                  >
+                    {client.fullName}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>No hay clientes aún</Text>
+          )}
           <TouchableOpacity
             style={styles.newClientButton}
             onPress={() => navigation.navigate('NewClient')}
+            disabled={loading}
           >
             <Text style={styles.newClientButtonText}>+ Crear nuevo cliente</Text>
           </TouchableOpacity>
@@ -86,6 +173,7 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
             value={date}
             onChangeText={setDate}
             keyboardType="numeric"
+            editable={!loading}
           />
           <Text style={styles.hint}>Ejemplo: 15/10/2025</Text>
         </View>
@@ -100,6 +188,7 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
             value={time}
             onChangeText={setTime}
             keyboardType="numeric"
+            editable={!loading}
           />
           <Text style={styles.hint}>Ejemplo: 14:30</Text>
         </View>
@@ -116,6 +205,7 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
                   duration === mins && styles.durationChipSelected,
                 ]}
                 onPress={() => setDuration(mins)}
+                disabled={loading}
               >
                 <Text
                   style={[
@@ -140,6 +230,7 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
             value={price}
             onChangeText={setPrice}
             keyboardType="numeric"
+            editable={!loading}
           />
         </View>
 
@@ -155,7 +246,16 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            editable={!loading}
           />
+        </View>
+
+        {/* Info de notificación */}
+        <View style={styles.notificationInfo}>
+          <Text style={styles.notificationIcon}>🔔</Text>
+          <Text style={styles.notificationText}>
+            Recibirás una notificación 1 hora antes de la cita
+          </Text>
         </View>
 
         {/* Botones */}
@@ -163,11 +263,18 @@ export default function NewAppointmentScreen({ navigation, route }: Props) {
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => navigation.goBack()}
+            disabled={loading}
           >
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Crear cita</Text>
+          <TouchableOpacity 
+            style={[styles.saveButton, loading && styles.buttonDisabled]} 
+            onPress={handleSave}
+            disabled={loading}
+          >
+            <Text style={styles.saveButtonText}>
+              {loading ? 'Creando...' : 'Crear cita'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -237,6 +344,12 @@ const styles = StyleSheet.create({
   clientChipTextSelected: {
     color: '#fff',
   },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
   newClientButton: {
     padding: 12,
     borderRadius: 8,
@@ -275,6 +388,23 @@ const styles = StyleSheet.create({
   durationChipTextSelected: {
     color: '#fff',
   },
+  notificationInfo: {
+    flexDirection: 'row',
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  notificationIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  notificationText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400e',
+  },
   actions: {
     flexDirection: 'row',
     gap: 12,
@@ -304,5 +434,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
+  RefreshControl,
 } from 'react-native';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
-import { mockClients, Client } from '../lib/mockData';
+import { getAllClients, searchClients, ExtendedClient } from '../lib/clientService';
 import SafeScreen from '../components/SafeScreen';
 
 type ClientsScreenNavigationProp = CompositeNavigationProp<
@@ -24,14 +25,46 @@ type Props = {
 };
 
 export default function ClientsScreen({ navigation }: Props) {
+  const [clients, setClients] = useState<ExtendedClient[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredClients = mockClients.filter(client =>
-    client.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.phone.includes(searchQuery)
+  useFocusEffect(
+    useCallback(() => {
+      loadClients();
+    }, [])
   );
 
-  const renderClient = ({ item }: { item: Client }) => (
+  const loadClients = async () => {
+    try {
+      const clientsList = await getAllClients();
+      setClients(clientsList);
+    } catch (error) {
+      console.error('Error cargando clientes:', error);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      const results = await searchClients(query);
+      setClients(results);
+    } else {
+      await loadClients();
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setSearchQuery('');
+    await loadClients();
+    setRefreshing(false);
+  };
+
+  const activeClients = clients.filter(c => c.completedSessions > 0).length;
+  const newClients = clients.filter(c => c.completedSessions === 0).length;
+
+  const renderClient = ({ item }: { item: ExtendedClient }) => (
     <TouchableOpacity 
       style={styles.clientCard}
       onPress={() => navigation.navigate('ClientDetail', { clientId: item.id })}
@@ -44,9 +77,16 @@ export default function ClientsScreen({ navigation }: Props) {
       <View style={styles.clientInfo}>
         <Text style={styles.clientName}>{item.fullName}</Text>
         <Text style={styles.clientPhone}>{item.phone}</Text>
-        <Text style={styles.clientSessions}>
-          {item.totalSessions} sesiones realizadas
-        </Text>
+        <View style={styles.clientStats}>
+          <Text style={styles.clientSessions}>
+            ✓ {item.completedSessions} completadas
+          </Text>
+          {item.plannedSessions > 0 && (
+            <Text style={styles.clientPlanned}>
+              • {item.plannedSessions} planificadas
+            </Text>
+          )}
+        </View>
       </View>
       <View style={styles.clientArrow}>
         <Text style={styles.arrowText}>›</Text>
@@ -70,42 +110,55 @@ export default function ClientsScreen({ navigation }: Props) {
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por nombre o teléfono..."
+          placeholder="Buscar por nombre, teléfono o email..."
           placeholderTextColor="#999"
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearch}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => handleSearch('')}>
+            <Text style={styles.clearButton}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{mockClients.length}</Text>
+          <Text style={styles.statNumber}>{clients.length}</Text>
           <Text style={styles.statLabel}>Total</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {mockClients.filter(c => c.totalSessions > 0).length}
-          </Text>
+          <Text style={styles.statNumber}>{activeClients}</Text>
           <Text style={styles.statLabel}>Activos</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {mockClients.filter(c => c.totalSessions === 0).length}
-          </Text>
+          <Text style={styles.statNumber}>{newClients}</Text>
           <Text style={styles.statLabel}>Nuevos</Text>
         </View>
       </View>
 
       <FlatList
-        data={filteredClients}
+        data={clients}
         renderItem={renderClient}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>👥</Text>
             <Text style={styles.emptyStateText}>
               {searchQuery ? 'No se encontraron clientes' : 'No hay clientes aún'}
             </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => navigation.navigate('NewClient')}
+              >
+                <Text style={styles.emptyButtonText}>+ Crear primer cliente</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
       />
@@ -156,6 +209,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#000',
+  },
+  clearButton: {
+    fontSize: 18,
+    color: '#999',
+    padding: 4,
   },
   statsRow: {
     flexDirection: 'row',
@@ -222,12 +280,22 @@ const styles = StyleSheet.create({
   clientPhone: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  clientStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   clientSessions: {
     fontSize: 12,
     color: '#059669',
     fontWeight: '500',
+  },
+  clientPlanned: {
+    fontSize: 12,
+    color: '#f59e0b',
+    fontWeight: '500',
+    marginLeft: 4,
   },
   clientArrow: {
     width: 24,
@@ -243,8 +311,24 @@ const styles = StyleSheet.create({
     padding: 48,
     alignItems: 'center',
   },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyStateText: {
     fontSize: 16,
     color: '#999',
+    marginBottom: 16,
+  },
+  emptyButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

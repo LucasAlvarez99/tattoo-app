@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,12 @@ import {
   Modal,
   TextInput,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
+import { getDesignsByFolder, createDesign, updateDesign, deleteDesign } from '../lib/catalogService';
 import { DesignImage } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,7 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 type Props = NativeStackScreenProps<RootStackParamList, 'FolderDetail'>;
 
 const { width } = Dimensions.get('window');
-const imageSize = (width - 60) / 3; // 3 columnas con padding
+const imageSize = (width - 60) / 3;
 
 export default function FolderDetailScreen({ route, navigation }: Props) {
   const { folderId, folderName, folderColor } = route.params;
@@ -32,8 +35,29 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
   const [newDesignNotes, setNewDesignNotes] = useState('');
   const [newDesignPrice, setNewDesignPrice] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Solicitar permisos
+  useFocusEffect(
+    useCallback(() => {
+      loadDesigns();
+    }, [folderId])
+  );
+
+  const loadDesigns = async () => {
+    try {
+      const designsList = await getDesignsByFolder(folderId);
+      setDesigns(designsList);
+    } catch (error) {
+      console.error('Error cargando diseños:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDesigns();
+    setRefreshing(false);
+  };
+
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -43,14 +67,13 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
     return true;
   };
 
-  // Seleccionar imagen de la galería
   const pickImageFromGallery = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images', // ✅ Correcto: usar string en lugar de enum
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -66,7 +89,6 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  // Tomar foto con la cámara
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -96,46 +118,40 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
       'Seleccionar imagen',
       '¿De dónde quieres agregar la imagen?',
       [
-        {
-          text: 'Galería',
-          onPress: () => pickImageFromGallery(),
-        },
-        {
-          text: 'Cámara',
-          onPress: () => takePhoto(),
-        },
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Galería', onPress: () => pickImageFromGallery() },
+        { text: 'Cámara', onPress: () => takePhoto() },
+        { text: 'Cancelar', style: 'cancel' },
       ]
     );
   };
 
-  const handleSaveDesign = () => {
+  const handleSaveDesign = async () => {
     if (!selectedImageUri) {
       Alert.alert('Error', 'Primero selecciona una imagen');
       return;
     }
 
-    const newDesign: DesignImage = {
-      id: Date.now().toString(),
-      folderId,
-      uri: selectedImageUri,
-      name: newDesignName || undefined,
-      notes: newDesignNotes || undefined,
-      referencePrice: newDesignPrice ? parseFloat(newDesignPrice) : undefined,
-      createdAt: new Date(),
-    };
+    try {
+      await createDesign({
+        folderId,
+        uri: selectedImageUri,
+        name: newDesignName.trim() || undefined,
+        notes: newDesignNotes.trim() || undefined,
+        referencePrice: newDesignPrice ? parseFloat(newDesignPrice) : undefined,
+      });
 
-    setDesigns([newDesign, ...designs]);
-    setShowAddModal(false);
-    setNewDesignName('');
-    setNewDesignNotes('');
-    setNewDesignPrice('');
-    setSelectedImageUri(null);
-    
-    Alert.alert('✅ Imagen agregada', 'El diseño se agregó correctamente');
+      setShowAddModal(false);
+      setNewDesignName('');
+      setNewDesignNotes('');
+      setNewDesignPrice('');
+      setSelectedImageUri(null);
+      
+      await loadDesigns();
+      Alert.alert('✅ Imagen agregada', 'El diseño se agregó correctamente');
+    } catch (error) {
+      console.error('Error guardando diseño:', error);
+      Alert.alert('Error', 'No se pudo guardar el diseño');
+    }
   };
 
   const handleDeleteDesign = (designId: string) => {
@@ -147,9 +163,16 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            setDesigns(designs.filter(d => d.id !== designId));
-            setSelectedDesign(null);
+          onPress: async () => {
+            try {
+              await deleteDesign(designId);
+              setSelectedDesign(null);
+              await loadDesigns();
+              Alert.alert('✅ Eliminado', 'El diseño se eliminó correctamente');
+            } catch (error) {
+              console.error('Error eliminando diseño:', error);
+              Alert.alert('Error', 'No se pudo eliminar el diseño');
+            }
           },
         },
       ]
@@ -178,7 +201,6 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeScreen edges={['top', 'left', 'right']} backgroundColor="#f9fafb">
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -189,14 +211,13 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
           <View style={[styles.folderIcon, { backgroundColor: folderColor }]}>
             <Text style={styles.folderIconText}>📁</Text>
           </View>
-          <Text style={styles.folderName}>{folderName}</Text>
+          <Text style={styles.folderName} numberOfLines={1}>{folderName}</Text>
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.designCount}>{designs.length}</Text>
         </View>
       </View>
 
-      {/* Grid de diseños */}
       <FlatList
         data={designs}
         renderItem={renderDesign}
@@ -204,6 +225,9 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
         numColumns={3}
         contentContainerStyle={styles.grid}
         columnWrapperStyle={styles.row}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>🎨</Text>
@@ -215,12 +239,11 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
         }
       />
 
-      {/* Botón flotante para agregar */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => setShowAddModal(true)}
+        onPress={handlePickImage}
       >
-        <Text style={styles.fabText}>+ Agregar</Text>
+        <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
       {/* Modal Agregar diseño */}
@@ -368,7 +391,7 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
                   )}
 
                   <Text style={styles.detailDate}>
-                    Agregado: {selectedDesign.createdAt.toLocaleDateString('es-AR')}
+                    Agregado: {new Date(selectedDesign.createdAt).toLocaleDateString('es-AR')}
                   </Text>
 
                   <View style={styles.detailActions}>
@@ -376,7 +399,6 @@ export default function FolderDetailScreen({ route, navigation }: Props) {
                       style={styles.detailActionButton}
                       onPress={() => {
                         setSelectedDesign(null);
-                        // Aquí podrías compartir la imagen
                         Alert.alert('Compartir', 'Funcionalidad próximamente');
                       }}
                     >
@@ -441,6 +463,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#000',
+    maxWidth: 150,
   },
   headerRight: {
     width: 80,
@@ -510,9 +533,11 @@ const styles = StyleSheet.create({
     right: 20,
     bottom: 90,
     backgroundColor: '#000',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -521,8 +546,8 @@ const styles = StyleSheet.create({
   },
   fabText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 32,
+    fontWeight: '300',
   },
   modalOverlay: {
     flex: 1,

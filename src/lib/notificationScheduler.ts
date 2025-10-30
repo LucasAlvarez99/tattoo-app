@@ -1,22 +1,38 @@
 // src/lib/notificationScheduler.ts
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appointment } from './mockData';
 import { getAllAppointments } from './appointmentService';
 
 const NOTIFICATION_IDS_KEY = '@tattoo_app:notification_ids';
 
+// ==================== VERIFICAR SI ESTÁ DISPONIBLE ====================
+
+let notificationsAvailable = false;
+
+// Detectar si estamos en Expo Go
+const isExpoGo = () => {
+  return !Notifications.scheduleNotificationAsync || 
+         Platform.OS === 'web';
+};
+
 // ==================== CONFIGURACIÓN ====================
 
 // Configurar cómo se muestran las notificaciones
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+  notificationsAvailable = !isExpoGo();
+} catch (error) {
+  console.log('Notificaciones no disponibles en este entorno');
+  notificationsAvailable = false;
+}
 
 // ==================== PERMISOS ====================
 
@@ -235,4 +251,4 @@ export const setupNotificationListeners = () => {
     const appointmentId = response.notification.request.content.data.appointmentId;
     // Aquí podrías navegar a la pantalla de detalle de la cita
   });
-};
+};  

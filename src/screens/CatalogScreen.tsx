@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,14 @@ import {
   FlatList,
   Alert,
   Modal,
+  RefreshControl,
 } from 'react-native';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockFolders, mockDesigns, DesignFolder } from '../lib/mockData';
+import { getAllFolders, createFolder, deleteFolder, getCatalogStats } from '../lib/catalogService';
+import { DesignFolder } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 
 type CatalogScreenNavigationProp = CompositeNavigationProp<
@@ -27,46 +28,75 @@ type Props = {
 };
 
 export default function CatalogScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
-  const [folders, setFolders] = useState<DesignFolder[]>(mockFolders);
+  const [folders, setFolders] = useState<DesignFolder[]>([]);
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDescription, setNewFolderDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState('#fef3c7');
+  const [refreshing, setRefreshing] = useState(false);
+  const [totalDesigns, setTotalDesigns] = useState(0);
 
   const colors = [
-    '#fef3c7', // Amarillo
-    '#dbeafe', // Azul
-    '#fecaca', // Rojo
-    '#d1fae5', // Verde
-    '#e9d5ff', // Púrpura
-    '#fed7aa', // Naranja
-    '#fbcfe8', // Rosa
-    '#d1d5db', // Gris
+    '#fef3c7', '#dbeafe', '#fecaca', '#d1fae5',
+    '#e9d5ff', '#fed7aa', '#fbcfe8', '#d1d5db',
   ];
 
-  const handleCreateFolder = () => {
+  useFocusEffect(
+    useCallback(() => {
+      loadFolders();
+      loadStats();
+    }, [])
+  );
+
+  const loadFolders = async () => {
+    try {
+      const foldersList = await getAllFolders();
+      setFolders(foldersList);
+    } catch (error) {
+      console.error('Error cargando carpetas:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const stats = await getCatalogStats();
+      setTotalDesigns(stats.totalDesigns);
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadFolders();
+    await loadStats();
+    setRefreshing(false);
+  };
+
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       Alert.alert('Error', 'El nombre de la carpeta es requerido');
       return;
     }
 
-    const newFolder: DesignFolder = {
-      id: Date.now().toString(),
-      name: newFolderName.trim(),
-      description: newFolderDescription.trim() || undefined,
-      color: selectedColor,
-      designCount: 0,
-      createdAt: new Date(),
-    };
+    try {
+      await createFolder({
+        name: newFolderName.trim(),
+        description: newFolderDescription.trim() || undefined,
+        color: selectedColor,
+      });
 
-    setFolders([...folders, newFolder]);
-    setShowNewFolderModal(false);
-    setNewFolderName('');
-    setNewFolderDescription('');
-    setSelectedColor('#fef3c7');
-    
-    Alert.alert('✅ Carpeta creada', `"${newFolder.name}" fue creada correctamente`);
+      setShowNewFolderModal(false);
+      setNewFolderName('');
+      setNewFolderDescription('');
+      setSelectedColor('#fef3c7');
+      
+      await loadFolders();
+      Alert.alert('✅ Carpeta creada', 'La carpeta se creó correctamente');
+    } catch (error) {
+      console.error('Error creando carpeta:', error);
+      Alert.alert('Error', 'No se pudo crear la carpeta');
+    }
   };
 
   const handleDeleteFolder = (folderId: string, folderName: string) => {
@@ -78,8 +108,16 @@ export default function CatalogScreen({ navigation }: Props) {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            setFolders(folders.filter(f => f.id !== folderId));
+          onPress: async () => {
+            try {
+              await deleteFolder(folderId);
+              await loadFolders();
+              await loadStats();
+              Alert.alert('✅ Eliminada', 'La carpeta se eliminó correctamente');
+            } catch (error) {
+              console.error('Error eliminando carpeta:', error);
+              Alert.alert('Error', 'No se pudo eliminar la carpeta');
+            }
           },
         },
       ]
@@ -102,7 +140,9 @@ export default function CatalogScreen({ navigation }: Props) {
       <View style={styles.folderInfo}>
         <Text style={styles.folderName}>{item.name}</Text>
         {item.description && (
-          <Text style={styles.folderDescription}>{item.description}</Text>
+          <Text style={styles.folderDescription} numberOfLines={1}>
+            {item.description}
+          </Text>
         )}
         <Text style={styles.folderCount}>
           {item.designCount} {item.designCount === 1 ? 'diseño' : 'diseños'}
@@ -113,8 +153,6 @@ export default function CatalogScreen({ navigation }: Props) {
       </View>
     </TouchableOpacity>
   );
-
-  const totalDesigns = folders.reduce((sum, f) => sum + f.designCount, 0);
 
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
@@ -144,6 +182,9 @@ export default function CatalogScreen({ navigation }: Props) {
         renderItem={renderFolder}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>🎨</Text>

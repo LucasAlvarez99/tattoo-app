@@ -1,8 +1,14 @@
 // src/lib/clientService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Client } from './mockData';
+import { localAuth } from './localAuthService';
+import { getUserKey } from './userDataService';
 
-const CLIENTS_KEY = '@tattoo_app:clients';
+const getClientsKey = (): string => {
+  const user = localAuth.getUser();
+  if (!user) return '@tattoo_app:clients'; // Fallback
+  return getUserKey(user.id, 'clients');
+};
 
 // ==================== TIPO EXTENDIDO DE CLIENTE ====================
 
@@ -15,7 +21,8 @@ export interface ExtendedClient extends Client {
 
 export const getAllClients = async (): Promise<ExtendedClient[]> => {
   try {
-    const data = await AsyncStorage.getItem(CLIENTS_KEY);
+    const key = getClientsKey();
+    const data = await AsyncStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error obteniendo clientes:', error);
@@ -48,7 +55,8 @@ export const createClient = async (
     };
     
     clients.push(newClient);
-    await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+    const key = getClientsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(clients));
     
     return newClient;
   } catch (error) {
@@ -74,7 +82,8 @@ export const updateClient = async (
       ...updates,
     };
     
-    await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+    const key = getClientsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(clients));
     return clients[index];
   } catch (error) {
     console.error('Error actualizando cliente:', error);
@@ -87,7 +96,8 @@ export const deleteClient = async (id: string): Promise<boolean> => {
     const clients = await getAllClients();
     const filtered = clients.filter(client => client.id !== id);
     
-    await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(filtered));
+    const key = getClientsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
     return true;
   } catch (error) {
     console.error('Error eliminando cliente:', error);
@@ -166,14 +176,15 @@ export const searchClients = async (query: string): Promise<ExtendedClient[]> =>
 
 export const initializeClients = async (mockData: Client[]) => {
   try {
-    const existing = await AsyncStorage.getItem(CLIENTS_KEY);
+    const key = getClientsKey();
+    const existing = await AsyncStorage.getItem(key);
     if (!existing) {
       const extendedMockData: ExtendedClient[] = mockData.map(client => ({
         ...client,
         plannedSessions: 0,
         completedSessions: client.totalSessions,
       }));
-      await AsyncStorage.setItem(CLIENTS_KEY, JSON.stringify(extendedMockData));
+      await AsyncStorage.setItem(key, JSON.stringify(extendedMockData));
     }
   } catch (error) {
     console.error('Error inicializando clientes:', error);

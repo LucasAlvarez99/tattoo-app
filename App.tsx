@@ -16,7 +16,8 @@ import FolderDetailScreen from './src/screens/FolderDetailScreen';
 import PriceManagementScreen from './src/screens/PriceManagementScreen';
 import ExportPDFScreen from './src/screens/ExportPDFScreen';
 import NotificationManagementScreen from './src/screens/NotificationManagementScreen';
-import { mockAuth } from './src/lib/mockAuth';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+import { localAuth } from './src/lib/localAuthService';
 import { mockAppointments, mockClients } from './src/lib/mockData';
 import { initializeAppointments } from './src/lib/appointmentService';
 import { initializeClients } from './src/lib/clientService';
@@ -36,12 +37,21 @@ export default function App() {
   const initializeApp = async () => {
     try {
       // Inicializar autenticación
-      mockAuth.initialize();
-      setIsAuthenticated(mockAuth.isAuthenticated());
+      await localAuth.initialize();
+      const currentUser = localAuth.getUser();
+      setIsAuthenticated(localAuth.isAuthenticated());
 
-      // Inicializar datos locales
-      await initializeAppointments(mockAppointments);
-      await initializeClients(mockClients);
+      // Solo inicializar datos mock si es el usuario admin por defecto
+      if (currentUser && currentUser.id === 'user_default') {
+        await initializeAppointments(mockAppointments);
+        await initializeClients(mockClients);
+      } else {
+        // Para usuarios nuevos, inicializar con arrays vacíos
+        await initializeAppointments([]);
+        await initializeClients([]);
+      }
+      
+      // Catálogo siempre inicia vacío
       await initializeCatalog();
 
       // Configurar listeners de notificaciones
@@ -53,7 +63,7 @@ export default function App() {
       setIsInitialized(true);
 
       // Listener de cambios de autenticación
-      const unsubscribe = mockAuth.onAuthStateChange((user) => {
+      const unsubscribe = localAuth.onAuthStateChange((user) => {
         setIsAuthenticated(!!user);
       });
 
@@ -151,6 +161,13 @@ export default function App() {
               <Stack.Screen 
                 name="NotificationManagement" 
                 component={NotificationManagementScreen}
+                options={{ 
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen 
+                name="ChangePassword" 
+                component={ChangePasswordScreen}
                 options={{ 
                   headerShown: false,
                 }}

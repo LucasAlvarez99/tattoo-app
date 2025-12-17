@@ -4,7 +4,7 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
-import { mockAuth } from '../lib/mockAuth';
+import { localAuth } from '../lib/localAuthService';
 import { mockStudioData, mockPriceCategories, mockMessageTemplates } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
 import ProfileHeader from '../components/ProfileHeader';
@@ -25,7 +25,7 @@ type Props = {
 type ModalType = 'none' | 'studio' | 'messages';
 
 export default function ProfileScreen({ navigation }: Props) {
-  const user = mockAuth.getUser();
+  const user = localAuth.getUser();
   const [activeModal, setActiveModal] = useState<ModalType>('none');
 
   const handleLogout = () => {
@@ -37,7 +37,7 @@ export default function ProfileScreen({ navigation }: Props) {
         {
           text: 'Salir',
           style: 'destructive',
-          onPress: () => mockAuth.logout(),
+          onPress: () => localAuth.logout(),
         },
       ]
     );
@@ -101,7 +101,7 @@ export default function ProfileScreen({ navigation }: Props) {
             icon="🔒"
             title="Seguridad"
             subtitle="Cambiar contraseña"
-            onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
+            onPress={() => navigation.navigate('ChangePassword')}
           />
           <ProfileMenuItem
             icon="💳"

@@ -1,15 +1,27 @@
 // src/lib/catalogService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DesignFolder, DesignImage } from './mockData';
+import { localAuth } from './localAuthService';
+import { getUserKey } from './userDataService';
 
-const FOLDERS_KEY = '@tattoo_app:folders';
-const DESIGNS_KEY = '@tattoo_app:designs';
+const getFoldersKey = (): string => {
+  const user = localAuth.getUser();
+  if (!user) return '@tattoo_app:folders';
+  return getUserKey(user.id, 'folders');
+};
+
+const getDesignsKey = (): string => {
+  const user = localAuth.getUser();
+  if (!user) return '@tattoo_app:designs';
+  return getUserKey(user.id, 'designs');
+};
 
 // ==================== CRUD DE CARPETAS ====================
 
 export const getAllFolders = async (): Promise<DesignFolder[]> => {
   try {
-    const data = await AsyncStorage.getItem(FOLDERS_KEY);
+    const key = getFoldersKey();
+    const data = await AsyncStorage.getItem(key);
     const folders = data ? JSON.parse(data) : [];
     
     // Actualizar conteo de diseños
@@ -39,7 +51,8 @@ export const createFolder = async (
     };
     
     folders.push(newFolder);
-    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+    const key = getFoldersKey();
+    await AsyncStorage.setItem(key, JSON.stringify(folders));
     
     return newFolder;
   } catch (error) {
@@ -65,7 +78,8 @@ export const updateFolder = async (
       ...updates,
     };
     
-    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+    const key = getFoldersKey();
+    await AsyncStorage.setItem(key, JSON.stringify(folders));
     return folders[index];
   } catch (error) {
     console.error('Error actualizando carpeta:', error);
@@ -85,7 +99,8 @@ export const deleteFolder = async (id: string): Promise<boolean> => {
     const folders = await getAllFolders();
     const filtered = folders.filter(folder => folder.id !== id);
     
-    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(filtered));
+    const key = getFoldersKey();
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
     return true;
   } catch (error) {
     console.error('Error eliminando carpeta:', error);
@@ -97,7 +112,8 @@ export const deleteFolder = async (id: string): Promise<boolean> => {
 
 export const getAllDesigns = async (): Promise<DesignImage[]> => {
   try {
-    const data = await AsyncStorage.getItem(DESIGNS_KEY);
+    const key = getDesignsKey();
+    const data = await AsyncStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error obteniendo diseños:', error);
@@ -128,7 +144,8 @@ export const createDesign = async (
     };
     
     designs.push(newDesign);
-    await AsyncStorage.setItem(DESIGNS_KEY, JSON.stringify(designs));
+    const key = getDesignsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(designs));
     
     return newDesign;
   } catch (error) {
@@ -154,7 +171,8 @@ export const updateDesign = async (
       ...updates,
     };
     
-    await AsyncStorage.setItem(DESIGNS_KEY, JSON.stringify(designs));
+    const key = getDesignsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(designs));
     return designs[index];
   } catch (error) {
     console.error('Error actualizando diseño:', error);
@@ -167,7 +185,8 @@ export const deleteDesign = async (id: string): Promise<boolean> => {
     const designs = await getAllDesigns();
     const filtered = designs.filter(design => design.id !== id);
     
-    await AsyncStorage.setItem(DESIGNS_KEY, JSON.stringify(filtered));
+    const key = getDesignsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
     return true;
   } catch (error) {
     console.error('Error eliminando diseño:', error);
@@ -190,7 +209,8 @@ export const moveDesignToFolder = async (
     }
     
     designs[index].folderId = newFolderId;
-    await AsyncStorage.setItem(DESIGNS_KEY, JSON.stringify(designs));
+    const key = getDesignsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(designs));
     
     return true;
   } catch (error) {
@@ -250,15 +270,18 @@ export const getCatalogStats = async () => {
 
 export const initializeCatalog = async () => {
   try {
-    const existingFolders = await AsyncStorage.getItem(FOLDERS_KEY);
-    const existingDesigns = await AsyncStorage.getItem(DESIGNS_KEY);
+    const foldersKey = getFoldersKey();
+    const designsKey = getDesignsKey();
+    
+    const existingFolders = await AsyncStorage.getItem(foldersKey);
+    const existingDesigns = await AsyncStorage.getItem(designsKey);
     
     if (!existingFolders) {
-      await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify([]));
+      await AsyncStorage.setItem(foldersKey, JSON.stringify([]));
     }
     
     if (!existingDesigns) {
-      await AsyncStorage.setItem(DESIGNS_KEY, JSON.stringify([]));
+      await AsyncStorage.setItem(designsKey, JSON.stringify([]));
     }
   } catch (error) {
     console.error('Error inicializando catálogo:', error);

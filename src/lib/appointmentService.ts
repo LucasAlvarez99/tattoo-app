@@ -1,14 +1,21 @@
 // src/lib/appointmentService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appointment } from './mockData';
+import { localAuth } from './localAuthService';
+import { getUserKey } from './userDataService';
 
-const APPOINTMENTS_KEY = '@tattoo_app:appointments';
+const getAppointmentsKey = (): string => {
+  const user = localAuth.getUser();
+  if (!user) return '@tattoo_app:appointments'; // Fallback
+  return getUserKey(user.id, 'appointments');
+};
 
 // ==================== CRUD DE CITAS ====================
 
 export const getAllAppointments = async (): Promise<Appointment[]> => {
   try {
-    const data = await AsyncStorage.getItem(APPOINTMENTS_KEY);
+    const key = getAppointmentsKey();
+    const data = await AsyncStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error obteniendo citas:', error);
@@ -39,7 +46,8 @@ export const createAppointment = async (
     };
     
     appointments.push(newAppointment);
-    await AsyncStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(appointments));
+    const key = getAppointmentsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(appointments));
     
     return newAppointment;
   } catch (error) {
@@ -65,7 +73,8 @@ export const updateAppointment = async (
       ...updates,
     };
     
-    await AsyncStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(appointments));
+    const key = getAppointmentsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(appointments));
     return appointments[index];
   } catch (error) {
     console.error('Error actualizando cita:', error);
@@ -78,7 +87,8 @@ export const deleteAppointment = async (id: string): Promise<boolean> => {
     const appointments = await getAllAppointments();
     const filtered = appointments.filter(apt => apt.id !== id);
     
-    await AsyncStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(filtered));
+    const key = getAppointmentsKey();
+    await AsyncStorage.setItem(key, JSON.stringify(filtered));
     return true;
   } catch (error) {
     console.error('Error eliminando cita:', error);
@@ -140,9 +150,10 @@ export const getUpcomingAppointments = async (limit?: number): Promise<Appointme
 
 export const initializeAppointments = async (mockData: Appointment[]) => {
   try {
-    const existing = await AsyncStorage.getItem(APPOINTMENTS_KEY);
+    const key = getAppointmentsKey();
+    const existing = await AsyncStorage.getItem(key);
     if (!existing) {
-      await AsyncStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(mockData));
+      await AsyncStorage.setItem(key, JSON.stringify(mockData));
     }
   } catch (error) {
     console.error('Error inicializando citas:', error);

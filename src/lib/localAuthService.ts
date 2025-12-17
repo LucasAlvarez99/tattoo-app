@@ -38,7 +38,7 @@ const initializeDefaultAccount = async () => {
           studioName: 'Studio Ink Master',
           phone: '+54 9 11 1234-5678',
           subscriptionStatus: 'trial',
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
           createdAt: new Date(),
         },
       };
@@ -193,6 +193,98 @@ class LocalAuth {
 
     this.notifyListeners();
   }
+
+  // ==================== CAMBIO DE CONTRASEÑA ====================
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      if (!this.currentUser) {
+        return { success: false, error: 'No hay usuario autenticado' };
+      }
+
+      if (newPassword.length < 6) {
+        return { success: false, error: 'La contraseña debe tener al menos 6 caracteres' };
+      }
+
+      const accountsData = await AsyncStorage.getItem(ACCOUNTS_KEY);
+      if (!accountsData) {
+        return { success: false, error: 'No se encontraron las cuentas' };
+      }
+
+      const accounts: Account[] = JSON.parse(accountsData);
+      const accountIndex = accounts.findIndex(
+        acc => acc.user.id === this.currentUser!.id
+      );
+
+      if (accountIndex === -1) {
+        return { success: false, error: 'Cuenta no encontrada' };
+      }
+
+      // Verificar contraseña actual
+      if (accounts[accountIndex].password !== currentPassword) {
+        return { success: false, error: 'La contraseña actual es incorrecta' };
+      }
+
+      // Actualizar contraseña
+      accounts[accountIndex].password = newPassword;
+      await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Error cambiando contraseña:', error);
+      return { success: false, error: 'Error al cambiar la contraseña' };
+    }
+  }
+
+  // ==================== RECUPERACIÓN DE CONTRASEÑA ====================
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const accountsData = await AsyncStorage.getItem(ACCOUNTS_KEY);
+      if (!accountsData) {
+        return { success: false, error: 'No se encontró la cuenta' };
+      }
+
+      const accounts: Account[] = JSON.parse(accountsData);
+      const account = accounts.find(
+        acc => acc.email.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!account) {
+        return { success: false, error: 'No existe una cuenta con ese email' };
+      }
+
+      // En una app real, aquí enviarías un email
+      // Por ahora, solo retornamos éxito
+      return { 
+        success: true, 
+        error: null 
+      };
+    } catch (error) {
+      console.error('Error en recuperación de contraseña:', error);
+      return { success: false, error: 'Error al procesar la solicitud' };
+    }
+  }
+
+  // ==================== VALIDACIONES ====================
+
+  async emailExists(email: string): Promise<boolean> {
+    try {
+      const accountsData = await AsyncStorage.getItem(ACCOUNTS_KEY);
+      if (!accountsData) return false;
+
+      const accounts: Account[] = JSON.parse(accountsData);
+      return accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase());
+    } catch (error) {
+      console.error('Error verificando email:', error);
+      return false;
+    }
+  }
+
+  // ==================== LISTENERS ====================
 
   onAuthStateChange(callback: (user: User | null) => void): () => void {
     this.listeners.push(callback);

@@ -11,25 +11,25 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { supabase } from '../lib/supabaseClient';
+import { localAuth } from '../lib/localAuthService';
 import SafeScreen from '../components/SafeScreen';
 
-type RegisterScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
-
-type Props = {
-  navigation: RegisterScreenNavigationProp;
-};
+type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
 export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [studioName, setStudioName] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleRegister() {
-    if (!email || !password || !confirmPassword) {
+    // Validaciones
+    if (!email || !password || !confirmPassword || !fullName || !studioName || !phone) {
       Alert.alert('Error', 'Por favor completá todos los campos');
       return;
     }
@@ -44,41 +44,64 @@ export default function RegisterScreen({ navigation }: Props) {
       return;
     }
 
+    // Validar formato de email básico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Ingresá un email válido');
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
+    const { error } = await localAuth.register(
+      email.trim(),
       password,
-    });
+      fullName.trim(),
+      studioName.trim(),
+      phone.trim()
+    );
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error de registro', error.message);
+      Alert.alert('Error de registro', error);
     } else {
       Alert.alert(
-        '¡Registro exitoso!',
-        'Por favor verificá tu email para confirmar tu cuenta.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        '🎉 ¡Cuenta creada!',
+        'Tu cuenta se creó exitosamente con 30 días de prueba gratis.',
+        [{ text: 'Empezar', onPress: () => {} }]
       );
     }
   }
 
   return (
     <SafeScreen>
-      <KeyboardAvoidingView
+      <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={registerStyles.container}
+        style={styles.container}
       >
         <ScrollView 
-          contentContainerStyle={registerStyles.content}
+          contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={registerStyles.title}>Crear Cuenta</Text>
-          <Text style={registerStyles.subtitle}>Registrate para empezar</Text>
+          <Text style={styles.title}>Crear Cuenta</Text>
+          <Text style={styles.subtitle}>Empezá tu prueba gratis de 7 días</Text>
 
+          <Text style={styles.inputLabel}>Nombre completo *</Text>
           <TextInput
-            placeholder="Email"
+            placeholder="Juan Pérez"
             placeholderTextColor="#999"
-            style={registerStyles.input}
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
+            editable={!loading}
+          />
+
+          <Text style={styles.inputLabel}>Email *</Text>
+          <TextInput
+            placeholder="tu@email.com"
+            placeholderTextColor="#999"
+            style={styles.input}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -86,60 +109,95 @@ export default function RegisterScreen({ navigation }: Props) {
             editable={!loading}
           />
 
+          <Text style={styles.inputLabel}>Nombre del estudio *</Text>
           <TextInput
-            placeholder="Contraseña"
+            placeholder="Studio Ink Master"
+            placeholderTextColor="#999"
+            style={styles.input}
+            value={studioName}
+            onChangeText={setStudioName}
+            editable={!loading}
+          />
+
+          <Text style={styles.inputLabel}>Teléfono *</Text>
+          <TextInput
+            placeholder="+54 9 11 1234-5678"
+            placeholderTextColor="#999"
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            editable={!loading}
+          />
+
+          <Text style={styles.inputLabel}>Contraseña *</Text>
+          <TextInput
+            placeholder="Mínimo 6 caracteres"
             placeholderTextColor="#999"
             secureTextEntry
-            style={registerStyles.input}
+            style={styles.input}
             value={password}
             onChangeText={setPassword}
             editable={!loading}
           />
 
+          <Text style={styles.inputLabel}>Confirmar contraseña *</Text>
           <TextInput
-            placeholder="Confirmar contraseña"
+            placeholder="Repetí tu contraseña"
             placeholderTextColor="#999"
             secureTextEntry
-            style={registerStyles.input}
+            style={styles.input}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             editable={!loading}
           />
 
+          <View style={styles.benefitsBox}>
+            <Text style={styles.benefitsTitle}>✨ Incluye:</Text>
+            <Text style={styles.benefitItem}>✓ 30 días de prueba gratis</Text>
+            <Text style={styles.benefitItem}>✓ Gestión ilimitada de clientes</Text>
+            <Text style={styles.benefitItem}>✓ Agenda y recordatorios</Text>
+            <Text style={styles.benefitItem}>✓ Catálogo de diseños</Text>
+            <Text style={styles.benefitItem}>✓ Sin tarjeta de crédito requerida</Text>
+          </View>
+
           <TouchableOpacity
-            style={[registerStyles.button, loading && registerStyles.buttonDisabled]}
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={registerStyles.buttonText}>Crear cuenta</Text>
+              <Text style={styles.buttonText}>Crear cuenta gratis</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Login')}
             disabled={loading}
+            style={styles.loginLink}
           >
-            <Text style={registerStyles.linkText}>
-              ¿Ya tenés cuenta? <Text style={registerStyles.linkBold}>Iniciá sesión</Text>
+            <Text style={styles.linkText}>
+              ¿Ya tenés cuenta? <Text style={styles.linkBold}>Iniciá sesión</Text>
             </Text>
           </TouchableOpacity>
+
+          <View style={{ height: 20 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeScreen>
   );
 }
 
-const registerStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 24,
+    paddingTop: 40,
   },
   title: {
     fontSize: 32,
@@ -151,23 +209,49 @@ const registerStyles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
     color: '#666',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 6,
+    marginTop: 12,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 8,
     borderRadius: 8,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
+  },
+  benefitsBox: {
+    backgroundColor: '#f0fdf4',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+  },
+  benefitsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#059669',
+    marginBottom: 8,
+  },
+  benefitItem: {
+    fontSize: 14,
+    color: '#059669',
+    marginBottom: 4,
   },
   button: {
     backgroundColor: '#000',
     padding: 16,
     borderRadius: 8,
-    marginTop: 8,
     marginBottom: 16,
   },
   buttonDisabled: {
@@ -178,6 +262,9 @@ const registerStyles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loginLink: {
+    padding: 12,
   },
   linkText: {
     textAlign: 'center',

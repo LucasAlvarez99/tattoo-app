@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { mockAuth } from '../lib/mockAuth';
+import { localAuth } from '../lib/localAuthService';
 import SafeScreen from '../components/SafeScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -30,7 +30,7 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     setLoading(true);
-    const { error } = await mockAuth.login(email.trim(), password);
+    const { error } = await localAuth.login(email.trim(), password);
     setLoading(false);
 
     if (error) {

@@ -1,9 +1,10 @@
-// app.config.js - Configuración de Expo con variables de entorno
+// app.config.js - Configuración de Expo para builds
 export default {
   expo: {
-    name: "tattoo-app",
+    name: "Tattoo Manager",
     slug: "tattoo-app",
-    version: "1.0.0",
+    owner: "lucas_alvarez",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -14,23 +15,36 @@ export default {
       backgroundColor: "#ffffff"
     },
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      bundleIdentifier: "com.tattoomanager.app"
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
+      package: "com.tattoomanager.app",
+      versionCode: 1,
       edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false
+      predictiveBackGestureEnabled: false,
+      permissions: [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "NOTIFICATIONS"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"
     },
-    // 🔑 Variables de entorno expuestas a la app
+    plugins: [
+      "expo-image-picker",
+      "expo-notifications"
+    ],
     extra: {
-      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      eas: {
+        projectId: "5da9f8be-ba0a-48b0-bd10-fb3770c1b4f3"
+      }
     }
   }
 };

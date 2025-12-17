@@ -11,7 +11,7 @@ import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/nativ
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
-import { mockAuth } from '../lib/mockAuth';
+import { localAuth } from '../lib/localAuthService';
 import { getTodayAppointments, getUpcomingAppointments } from '../lib/appointmentService';
 import { Appointment } from '../lib/mockData';
 import SafeScreen from '../components/SafeScreen';
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export default function HomeScreen({ navigation }: Props) {
-  const user = mockAuth.getUser();
+  const user = localAuth.getUser();
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [refreshing, setRefreshing] = useState(false);

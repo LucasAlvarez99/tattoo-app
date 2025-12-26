@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,28 +9,30 @@ import {
   Alert,
   Modal,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import {
-  mockPriceCategories,
   PriceCategory,
   PriceItem,
-  updatePriceItem,
+  getAllCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
   addPriceItem,
+  updatePriceItem,
   deletePriceItem,
-  addPriceCategory,
-  updatePriceCategory,
-  deletePriceCategory,
-} from '../lib/mockData';
+} from '../lib/priceService';
 import SafeScreen from '../components/SafeScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PriceManagement'>;
-
 type EditMode = 'none' | 'category' | 'item';
 
 export default function PriceManagementScreen({ navigation }: Props) {
-  const [categories, setCategories] = useState<PriceCategory[]>(mockPriceCategories);
+  const [categories, setCategories] = useState<PriceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState<EditMode>('none');
   const [editingCategory, setEditingCategory] = useState<PriceCategory | null>(null);
   const [editingItem, setEditingItem] = useState<PriceItem | null>(null);
@@ -43,8 +45,23 @@ export default function PriceManagementScreen({ navigation }: Props) {
   const [categoryName, setCategoryName] = useState('');
   const [categoryDescription, setCategoryDescription] = useState('');
 
-  const refreshCategories = () => {
-    setCategories([...mockPriceCategories]);
+  useFocusEffect(
+    useCallback(() => {
+      loadCategories();
+    }, [])
+  );
+
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error cargando categorías:', error);
+      Alert.alert('Error', 'No se pudieron cargar las categorías');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditItem = (category: PriceCategory, item: PriceItem) => {
@@ -56,7 +73,7 @@ export default function PriceManagementScreen({ navigation }: Props) {
     setEditMode('item');
   };
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     if (!itemName.trim() || !itemPrice.trim()) {
       Alert.alert('Error', 'Nombre y precio son requeridos');
       return;
@@ -68,28 +85,33 @@ export default function PriceManagementScreen({ navigation }: Props) {
       return;
     }
 
-    if (editingItem) {
-      // Editar existente
-      updatePriceItem(editingCategoryId, editingItem.id, {
-        name: itemName.trim(),
-        basePrice: price,
-        description: itemDescription.trim() || undefined,
-      });
-      Alert.alert('✅ Guardado', 'El precio se actualizó correctamente');
-    } else {
-      // Crear nuevo
-      addPriceItem(editingCategoryId, {
-        categoryId: editingCategoryId,
-        name: itemName.trim(),
-        basePrice: price,
-        description: itemDescription.trim() || undefined,
-        isActive: true,
-      });
-      Alert.alert('✅ Creado', 'El precio se agregó correctamente');
-    }
+    try {
+      if (editingItem) {
+        // Editar existente
+        await updatePriceItem(editingCategoryId, editingItem.id, {
+          name: itemName.trim(),
+          basePrice: price,
+          description: itemDescription.trim() || undefined,
+        });
+        Alert.alert('✅ Guardado', 'El precio se actualizó correctamente');
+      } else {
+        // Crear nuevo
+        await addPriceItem(editingCategoryId, {
+          categoryId: editingCategoryId,
+          name: itemName.trim(),
+          basePrice: price,
+          description: itemDescription.trim() || undefined,
+          isActive: true,
+        });
+        Alert.alert('✅ Creado', 'El precio se agregó correctamente');
+      }
 
-    refreshCategories();
-    closeModal();
+      await loadCategories();
+      closeModal();
+    } catch (error) {
+      console.error('Error guardando item:', error);
+      Alert.alert('Error', 'No se pudo guardar el precio');
+    }
   };
 
   const handleDeleteItem = (categoryId: string, itemId: string, itemName: string) => {
@@ -101,10 +123,14 @@ export default function PriceManagementScreen({ navigation }: Props) {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            deletePriceItem(categoryId, itemId);
-            refreshCategories();
-            Alert.alert('✅ Eliminado', 'El precio se eliminó correctamente');
+          onPress: async () => {
+            try {
+              await deletePriceItem(categoryId, itemId);
+              await loadCategories();
+              Alert.alert('✅ Eliminado', 'El precio se eliminó correctamente');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo eliminar el precio');
+            }
           },
         },
       ]
@@ -120,39 +146,44 @@ export default function PriceManagementScreen({ navigation }: Props) {
     setEditMode('item');
   };
 
-  const handleEditCategory = (category: PriceCategory) => {
+  const handleEditCategory = (category: PriceCategory | null) => {
     setEditingCategory(category);
-    setCategoryName(category.name);
-    setCategoryDescription(category.description || '');
+    setCategoryName(category?.name || '');
+    setCategoryDescription(category?.description || '');
     setEditMode('category');
   };
 
-  const handleSaveCategory = () => {
+  const handleSaveCategory = async () => {
     if (!categoryName.trim()) {
       Alert.alert('Error', 'El nombre de la categoría es requerido');
       return;
     }
 
-    if (editingCategory) {
-      // Editar existente
-      updatePriceCategory(editingCategory.id, {
-        name: categoryName.trim(),
-        description: categoryDescription.trim() || undefined,
-      });
-      Alert.alert('✅ Guardado', 'La categoría se actualizó correctamente');
-    } else {
-      // Crear nueva
-      addPriceCategory({
-        name: categoryName.trim(),
-        description: categoryDescription.trim() || undefined,
-        items: [],
-        isActive: true,
-      });
-      Alert.alert('✅ Creada', 'La categoría se creó correctamente');
-    }
+    try {
+      if (editingCategory) {
+        // Editar existente
+        await updateCategory(editingCategory.id, {
+          name: categoryName.trim(),
+          description: categoryDescription.trim() || undefined,
+        });
+        Alert.alert('✅ Guardado', 'La categoría se actualizó correctamente');
+      } else {
+        // Crear nueva
+        await createCategory({
+          name: categoryName.trim(),
+          description: categoryDescription.trim() || undefined,
+          items: [],
+          isActive: true,
+        });
+        Alert.alert('✅ Creada', 'La categoría se creó correctamente');
+      }
 
-    refreshCategories();
-    closeModal();
+      await loadCategories();
+      closeModal();
+    } catch (error) {
+      console.error('Error guardando categoría:', error);
+      Alert.alert('Error', 'No se pudo guardar la categoría');
+    }
   };
 
   const handleDeleteCategory = (categoryId: string, categoryName: string) => {
@@ -174,24 +205,36 @@ export default function PriceManagementScreen({ navigation }: Props) {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            deletePriceCategory(categoryId);
-            refreshCategories();
-            Alert.alert('✅ Eliminada', 'La categoría se eliminó correctamente');
+          onPress: async () => {
+            try {
+              await deleteCategory(categoryId);
+              await loadCategories();
+              Alert.alert('✅ Eliminada', 'La categoría se eliminó correctamente');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo eliminar la categoría');
+            }
           },
         },
       ]
     );
   };
 
-  const toggleCategoryActive = (categoryId: string, currentState: boolean) => {
-    updatePriceCategory(categoryId, { isActive: !currentState });
-    refreshCategories();
+  const toggleCategoryActive = async (categoryId: string, currentState: boolean) => {
+    try {
+      await updateCategory(categoryId, { isActive: !currentState });
+      await loadCategories();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el estado');
+    }
   };
 
-  const toggleItemActive = (categoryId: string, itemId: string, currentState: boolean) => {
-    updatePriceItem(categoryId, itemId, { isActive: !currentState });
-    refreshCategories();
+  const toggleItemActive = async (categoryId: string, itemId: string, currentState: boolean) => {
+    try {
+      await updatePriceItem(categoryId, itemId, { isActive: !currentState });
+      await loadCategories();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el estado');
+    }
   };
 
   const closeModal = () => {
@@ -206,6 +249,17 @@ export default function PriceManagementScreen({ navigation }: Props) {
     setCategoryDescription('');
   };
 
+  if (loading) {
+    return (
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Cargando precios...</Text>
+        </View>
+      </SafeScreen>
+    );
+  }
+
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
       {/* Header */}
@@ -214,7 +268,7 @@ export default function PriceManagementScreen({ navigation }: Props) {
           <Text style={styles.backButton}>‹ Atrás</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Lista de Precios</Text>
-        <TouchableOpacity onPress={() => handleEditCategory(null as any)}>
+        <TouchableOpacity onPress={() => handleEditCategory(null)}>
           <Text style={styles.addButton}>+ Categoría</Text>
         </TouchableOpacity>
       </View>
@@ -228,102 +282,118 @@ export default function PriceManagementScreen({ navigation }: Props) {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {categories.map(category => (
-          <View key={category.id} style={styles.categorySection}>
-            <View style={styles.categoryHeader}>
-              <View style={styles.categoryHeaderLeft}>
-                <Text style={styles.categoryName}>{category.name}</Text>
-                {category.description && (
-                  <Text style={styles.categoryDescription}>{category.description}</Text>
-                )}
-                <Text style={styles.categoryCount}>
-                  {category.items.length} {category.items.length === 1 ? 'precio' : 'precios'}
-                </Text>
-              </View>
-              <View style={styles.categoryHeaderRight}>
-                <Switch
-                  value={category.isActive}
-                  onValueChange={() => toggleCategoryActive(category.id, category.isActive)}
-                />
-              </View>
-            </View>
-
-            <View style={styles.categoryActions}>
-              <TouchableOpacity
-                style={styles.categoryActionButton}
-                onPress={() => handleEditCategory(category)}
-              >
-                <Text style={styles.categoryActionText}>✏️ Editar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.categoryActionButton}
-                onPress={() => handleNewItem(category.id)}
-              >
-                <Text style={styles.categoryActionText}>+ Agregar precio</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.categoryActionButton, styles.categoryActionButtonDanger]}
-                onPress={() => handleDeleteCategory(category.id, category.name)}
-              >
-                <Text style={[styles.categoryActionText, styles.categoryActionTextDanger]}>
-                  🗑️
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Items */}
-            {category.items.map(item => (
-              <View
-                key={item.id}
-                style={[styles.priceItem, !item.isActive && styles.priceItemInactive]}
-              >
-                <View style={styles.priceItemLeft}>
+        {categories.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>💵</Text>
+            <Text style={styles.emptyStateText}>No hay categorías de precios</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Creá tu primera categoría para empezar
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => handleEditCategory(null)}
+            >
+              <Text style={styles.emptyButtonText}>+ Crear categoría</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          categories.map(category => (
+            <View key={category.id} style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <View style={styles.categoryHeaderLeft}>
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                  {category.description && (
+                    <Text style={styles.categoryDescription}>{category.description}</Text>
+                  )}
+                  <Text style={styles.categoryCount}>
+                    {category.items.length} {category.items.length === 1 ? 'precio' : 'precios'}
+                  </Text>
+                </View>
+                <View style={styles.categoryHeaderRight}>
                   <Switch
-                    value={item.isActive}
-                    onValueChange={() =>
-                      toggleItemActive(category.id, item.id, item.isActive)
-                    }
+                    value={category.isActive}
+                    onValueChange={() => toggleCategoryActive(category.id, category.isActive)}
                   />
                 </View>
-                <View style={styles.priceItemCenter}>
-                  <Text style={[styles.priceItemName, !item.isActive && styles.textInactive]}>
-                    {item.name}
-                  </Text>
-                  {item.description && (
-                    <Text style={styles.priceItemDescription}>{item.description}</Text>
-                  )}
-                </View>
-                <View style={styles.priceItemRight}>
-                  <Text style={[styles.priceItemPrice, !item.isActive && styles.textInactive]}>
-                    ${item.basePrice.toLocaleString()}
-                  </Text>
-                  <View style={styles.priceItemActions}>
-                    <TouchableOpacity onPress={() => handleEditItem(category, item)}>
-                      <Text style={styles.priceItemActionText}>✏️</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteItem(category.id, item.id, item.name)}
-                    >
-                      <Text style={[styles.priceItemActionText, styles.deleteAction]}>🗑️</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
               </View>
-            ))}
 
-            {category.items.length === 0 && (
-              <View style={styles.emptyCategory}>
-                <Text style={styles.emptyCategoryText}>Sin precios en esta categoría</Text>
+              <View style={styles.categoryActions}>
                 <TouchableOpacity
-                  style={styles.emptyCategoryButton}
+                  style={styles.categoryActionButton}
+                  onPress={() => handleEditCategory(category)}
+                >
+                  <Text style={styles.categoryActionText}>✏️ Editar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.categoryActionButton}
                   onPress={() => handleNewItem(category.id)}
                 >
-                  <Text style={styles.emptyCategoryButtonText}>+ Agregar el primero</Text>
+                  <Text style={styles.categoryActionText}>+ Agregar precio</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.categoryActionButton, styles.categoryActionButtonDanger]}
+                  onPress={() => handleDeleteCategory(category.id, category.name)}
+                >
+                  <Text style={[styles.categoryActionText, styles.categoryActionTextDanger]}>
+                    🗑️
+                  </Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </View>
-        ))}
+
+              {/* Items */}
+              {category.items.map(item => (
+                <View
+                  key={item.id}
+                  style={[styles.priceItem, !item.isActive && styles.priceItemInactive]}
+                >
+                  <View style={styles.priceItemLeft}>
+                    <Switch
+                      value={item.isActive}
+                      onValueChange={() =>
+                        toggleItemActive(category.id, item.id, item.isActive)
+                      }
+                    />
+                  </View>
+                  <View style={styles.priceItemCenter}>
+                    <Text style={[styles.priceItemName, !item.isActive && styles.textInactive]}>
+                      {item.name}
+                    </Text>
+                    {item.description && (
+                      <Text style={styles.priceItemDescription}>{item.description}</Text>
+                    )}
+                  </View>
+                  <View style={styles.priceItemRight}>
+                    <Text style={[styles.priceItemPrice, !item.isActive && styles.textInactive]}>
+                      ${item.basePrice.toLocaleString()}
+                    </Text>
+                    <View style={styles.priceItemActions}>
+                      <TouchableOpacity onPress={() => handleEditItem(category, item)}>
+                        <Text style={styles.priceItemActionText}>✏️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteItem(category.id, item.id, item.name)}
+                      >
+                        <Text style={[styles.priceItemActionText, styles.deleteAction]}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              {category.items.length === 0 && (
+                <View style={styles.emptyCategory}>
+                  <Text style={styles.emptyCategoryText}>Sin precios en esta categoría</Text>
+                  <TouchableOpacity
+                    style={styles.emptyCategoryButton}
+                    onPress={() => handleNewItem(category.id)}
+                  >
+                    <Text style={styles.emptyCategoryButtonText}>+ Agregar el primero</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -443,6 +513,17 @@ export default function PriceManagementScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -493,6 +574,37 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
+  },
+  emptyState: {
+    padding: 64,
+    alignItems: 'center',
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   categorySection: {
     backgroundColor: '#fff',

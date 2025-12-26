@@ -1,8 +1,30 @@
 // src/lib/priceService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PriceCategory, PriceItem } from './mockData';
 import { localAuth } from './localAuthService';
 import { getUserKey } from './userDataService';
+
+// ==================== TIPOS ====================
+
+export type PriceCategory = {
+  id: string;
+  name: string;
+  description?: string;
+  items: PriceItem[];
+  isActive: boolean;
+  createdAt: Date;
+};
+
+export type PriceItem = {
+  id: string;
+  categoryId: string;
+  name: string;
+  basePrice: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+};
+
+// ==================== STORAGE ====================
 
 const getPricesKey = (): string => {
   const user = localAuth.getUser();
@@ -16,7 +38,10 @@ export const getAllCategories = async (): Promise<PriceCategory[]> => {
   try {
     const key = getPricesKey();
     const data = await AsyncStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
+    return data ? JSON.parse(data, (key, value) => {
+      if (key === 'createdAt') return new Date(value);
+      return value;
+    }) : [];
   } catch (error) {
     console.error('Error obteniendo categorías:', error);
     return [];
@@ -41,7 +66,7 @@ export const createCategory = async (
     
     const newCategory: PriceCategory = {
       ...category,
-      id: `cat_${Date.now()}`,
+      id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date(),
     };
     
@@ -112,7 +137,7 @@ export const addPriceItem = async (
     
     const newItem: PriceItem = {
       ...item,
-      id: `item_${Date.now()}`,
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date(),
     };
     
@@ -193,7 +218,7 @@ export const deletePriceItem = async (
 export const getActiveCategories = async (): Promise<PriceCategory[]> => {
   try {
     const categories = await getAllCategories();
-    return categories.filter(cat => cat.isActive);
+    return categories.filter(cat => cat.isActive && cat.items.some(item => item.isActive));
   } catch (error) {
     console.error('Error obteniendo categorías activas:', error);
     return [];

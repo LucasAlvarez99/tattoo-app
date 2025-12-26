@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootStackParamList } from './src/types/navigation';
+
+// Screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import MainTabs from './src/navigation/MainTabs';
@@ -17,12 +18,25 @@ import PriceManagementScreen from './src/screens/PriceManagementScreen';
 import ExportPDFScreen from './src/screens/ExportPDFScreen';
 import NotificationManagementScreen from './src/screens/NotificationManagementScreen';
 import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+
+// Services
 import { localAuth } from './src/lib/localAuthService';
-import { mockAppointments, mockClients } from './src/lib/mockData';
 import { initializeAppointments } from './src/lib/appointmentService';
 import { initializeClients } from './src/lib/clientService';
 import { initializeCatalog } from './src/lib/catalogService';
+import { initializePrices } from './src/lib/priceService';
+import { initializeTemplates } from './src/lib/messageTemplateService';
+import { initializeStudioData } from './src/lib/studioService';
 import { setupNotificationListeners, refreshAllNotifications } from './src/lib/notificationScheduler';
+
+// Default data
+import {
+  defaultClients,
+  defaultAppointments,
+  defaultPriceCategories,
+  defaultMessageTemplates,
+  defaultStudioData,
+} from './src/lib/defaultData';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -43,12 +57,18 @@ export default function App() {
 
       // Solo inicializar datos mock si es el usuario admin por defecto
       if (currentUser && currentUser.id === 'user_default') {
-        await initializeAppointments(mockAppointments);
-        await initializeClients(mockClients);
-      } else {
-        // Para usuarios nuevos, inicializar con arrays vacíos
+        await initializeAppointments(defaultAppointments);
+        await initializeClients(defaultClients);
+        await initializePrices(defaultPriceCategories);
+        await initializeTemplates(defaultMessageTemplates);
+        await initializeStudioData(defaultStudioData);
+      } else if (currentUser) {
+        // Para usuarios nuevos, inicializar con datos vacíos/defaults
         await initializeAppointments([]);
         await initializeClients([]);
+        await initializePrices(defaultPriceCategories); // Precios por defecto para todos
+        await initializeTemplates(defaultMessageTemplates); // Plantillas por defecto
+        await initializeStudioData(defaultStudioData); // Studio data básico
       }
       
       // Catálogo siempre inicia vacío

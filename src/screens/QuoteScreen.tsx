@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,40 +7,63 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import { mockPriceCategories, calculateFlexibleQuote } from '../lib/mockData';
+import { getActiveCategories, calculateQuote, PriceCategory } from '../lib/priceService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuoteScreen'>;
 
 export default function QuoteScreen({ navigation }: Props) {
+  const [categories, setCategories] = useState<PriceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [customAdjustment, setCustomAdjustment] = useState('');
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
 
-  // Solo mostrar categorías activas con items activos
-  const activeCategories = mockPriceCategories.filter(
-    cat => cat.isActive && cat.items.some(item => item.isActive)
+  useFocusEffect(
+    useCallback(() => {
+      loadCategories();
+    }, [])
   );
 
-  const handleCalculate = () => {
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const data = await getActiveCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error cargando categorías:', error);
+      Alert.alert('Error', 'No se pudieron cargar los precios');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCalculate = async () => {
     if (selectedItems.length === 0) {
       Alert.alert('Seleccioná al menos un precio', 'Elegí uno o más ítems para cotizar');
       return;
     }
 
-    let price = calculateFlexibleQuote(selectedItems);
-    
-    // Ajuste manual
-    if (customAdjustment) {
-      const adjustment = parseFloat(customAdjustment);
-      if (!isNaN(adjustment)) {
-        price += adjustment;
+    try {
+      let price = await calculateQuote(selectedItems);
+      
+      // Ajuste manual
+      if (customAdjustment) {
+        const adjustment = parseFloat(customAdjustment);
+        if (!isNaN(adjustment)) {
+          price += adjustment;
+        }
       }
-    }
 
-    setCalculatedPrice(price);
+      setCalculatedPrice(price);
+    } catch (error) {
+      console.error('Error calculando:', error);
+      Alert.alert('Error', 'No se pudo calcular el precio');
+    }
   };
 
   const handleReset = () => {
@@ -84,7 +107,7 @@ export default function QuoteScreen({ navigation }: Props) {
   const getSelectedItemsDetails = () => {
     const details: string[] = [];
     selectedItems.forEach(itemId => {
-      mockPriceCategories.forEach(category => {
+      categories.forEach(category => {
         const item = category.items.find(i => i.id === itemId);
         if (item) {
           details.push(`${item.name} - $${item.basePrice.toLocaleString()}`);
@@ -93,6 +116,15 @@ export default function QuoteScreen({ navigation }: Props) {
     });
     return details;
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#000" />
+        <Text style={styles.loadingText}>Cargando precios...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -106,7 +138,7 @@ export default function QuoteScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        {activeCategories.length === 0 && (
+        {categories.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>📋</Text>
             <Text style={styles.emptyStateText}>No hay precios configurados</Text>
@@ -128,7 +160,7 @@ export default function QuoteScreen({ navigation }: Props) {
         )}
 
         {/* Categorías y precios */}
-        {activeCategories.map((category, catIndex) => (
+        {categories.map((category, catIndex) => (
           <View key={category.id} style={styles.section}>
             <Text style={styles.sectionTitle}>
               {catIndex + 1}. {category.name}
@@ -177,10 +209,10 @@ export default function QuoteScreen({ navigation }: Props) {
         ))}
 
         {/* Ajuste manual */}
-        {activeCategories.length > 0 && (
+        {categories.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {activeCategories.length + 1}. Ajuste Manual (Opcional)
+              {categories.length + 1}. Ajuste Manual (Opcional)
             </Text>
             <TextInput
               style={styles.input}
@@ -197,7 +229,7 @@ export default function QuoteScreen({ navigation }: Props) {
         )}
 
         {/* Botones de acción */}
-        {activeCategories.length > 0 && (
+        {categories.length > 0 && (
           <View style={styles.actions}>
             <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetButtonText}>🔄 Reiniciar</Text>
@@ -253,7 +285,7 @@ export default function QuoteScreen({ navigation }: Props) {
         )}
 
         {/* Info */}
-        {activeCategories.length > 0 && (
+        {categories.length > 0 && (
           <View style={styles.infoBox}>
             <Text style={styles.infoIcon}>💡</Text>
             <Text style={styles.infoText}>
@@ -269,6 +301,18 @@ export default function QuoteScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

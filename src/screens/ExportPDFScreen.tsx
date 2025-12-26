@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,20 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import { mockAppointments, mockClients, mockStudioData, Appointment, Client } from '../lib/mockData';
+import { getAllAppointments } from '../lib/appointmentService';
+import { getAllClients } from '../lib/clientService';
+import { getStudioData } from '../lib/studioService';
+import { Appointment } from '../lib/types';
+import { ExtendedClient } from '../lib/clientService';
+import { StudioData } from '../lib/studioService';
 import SafeScreen from '../components/SafeScreen';
-// import RNHTMLtoPDF from 'react-native-html-to-pdf'; // Descomentar cuando instales
-// import Share from 'react-native-share'; // Descomentar cuando instales
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ExportPDF'>;
-
 type ExportPeriod = 'today' | 'week' | 'month' | 'all';
 type ExportType = 'agenda' | 'clients';
 
@@ -24,6 +27,37 @@ export default function ExportPDFScreen({ navigation }: Props) {
   const [selectedPeriod, setSelectedPeriod] = useState<ExportPeriod>('month');
   const [exportType, setExportType] = useState<ExportType>('agenda');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [clients, setClients] = useState<ExtendedClient[]>([]);
+  const [studioData, setStudioData] = useState<StudioData | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [appointmentsData, clientsData, studio] = await Promise.all([
+        getAllAppointments(),
+        getAllClients(),
+        getStudioData(),
+      ]);
+      
+      setAppointments(appointmentsData);
+      setClients(clientsData);
+      setStudioData(studio);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getAppointmentsByPeriod = (period: ExportPeriod): Appointment[] => {
     const now = new Date();
@@ -33,7 +67,7 @@ export default function ExportPDFScreen({ navigation }: Props) {
         const today = new Date(now.setHours(0, 0, 0, 0));
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        return mockAppointments.filter(apt => {
+        return appointments.filter(apt => {
           const aptDate = new Date(apt.date);
           return aptDate >= today && aptDate < tomorrow;
         });
@@ -44,7 +78,7 @@ export default function ExportPDFScreen({ navigation }: Props) {
         weekStart.setHours(0, 0, 0, 0);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
-        return mockAppointments.filter(apt => {
+        return appointments.filter(apt => {
           const aptDate = new Date(apt.date);
           return aptDate >= weekStart && aptDate < weekEnd;
         });
@@ -53,447 +87,29 @@ export default function ExportPDFScreen({ navigation }: Props) {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         monthEnd.setHours(23, 59, 59, 999);
-        return mockAppointments.filter(apt => {
+        return appointments.filter(apt => {
           const aptDate = new Date(apt.date);
           return aptDate >= monthStart && aptDate <= monthEnd;
         });
       
       case 'all':
-        return mockAppointments;
+        return appointments;
       
       default:
         return [];
     }
   };
 
-  const generateAgendaHTML = (appointments: Appointment[]): string => {
-    const sortedAppointments = [...appointments].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-
-    const totalRevenue = sortedAppointments
-      .filter(apt => apt.status === 'completed')
-      .reduce((sum, apt) => sum + (apt.price || 0), 0);
-
-    const confirmedCount = sortedAppointments.filter(apt => apt.status === 'confirmed').length;
-    const pendingCount = sortedAppointments.filter(apt => apt.status === 'pending').length;
-    const completedCount = sortedAppointments.filter(apt => apt.status === 'completed').length;
-
-    const periodText = {
-      today: 'Hoy',
-      week: 'Esta semana',
-      month: 'Este mes',
-      all: 'Todas las citas',
-    }[selectedPeriod];
-
-    let appointmentsHTML = '';
-    sortedAppointments.forEach(apt => {
-      const date = new Date(apt.date);
-      const statusColor = {
-        pending: '#f59e0b',
-        confirmed: '#10b981',
-        completed: '#3b82f6',
-        cancelled: '#ef4444',
-      }[apt.status];
-
-      const statusText = {
-        pending: 'Pendiente',
-        confirmed: 'Confirmada',
-        completed: 'Completada',
-        cancelled: 'Cancelada',
-      }[apt.status];
-
-      appointmentsHTML += `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 12px; font-size: 14px;">
-            <strong>${date.toLocaleDateString('es-AR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })}</strong><br/>
-            <span style="color: #666; font-size: 12px;">
-              ${date.toLocaleTimeString('es-AR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-          </td>
-          <td style="padding: 12px;">
-            <strong style="font-size: 14px;">${apt.clientName}</strong><br/>
-            ${apt.notes ? `<span style="color: #666; font-size: 12px;">${apt.notes}</span>` : ''}
-          </td>
-          <td style="padding: 12px; text-align: center;">
-            <span style="background-color: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-              ${statusText}
-            </span>
-          </td>
-          <td style="padding: 12px; text-align: right; font-weight: 600; color: #059669; font-size: 14px;">
-            ${apt.price ? `$${apt.price.toLocaleString()}` : '-'}
-          </td>
-        </tr>
-      `;
-    });
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 40px;
-            background: white;
-            color: #000;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #000;
-          }
-          .header h1 { font-size: 32px; margin-bottom: 8px; }
-          .header p { color: #666; font-size: 14px; }
-          .studio-info {
-            background: #f9fafb;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-            font-size: 12px;
-            color: #666;
-          }
-          .stats {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 32px;
-            gap: 16px;
-          }
-          .stat-card {
-            flex: 1;
-            background: #f9fafb;
-            padding: 16px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid #e5e7eb;
-          }
-          .stat-number {
-            font-size: 28px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 4px;
-          }
-          .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 24px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            overflow: hidden;
-          }
-          thead {
-            background: #f9fafb;
-          }
-          th {
-            padding: 12px;
-            text-align: left;
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #e5e7eb;
-          }
-          .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-            color: #999;
-            font-size: 11px;
-          }
-          .footer p { margin: 4px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${mockStudioData.name}</h1>
-          <p>Agenda de citas - ${periodText}</p>
-          <p style="margin-top: 8px; font-size: 12px;">
-            Generado el ${new Date().toLocaleDateString('es-AR', {
-              day: '2-digit',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </p>
-        </div>
-
-        <div class="studio-info">
-          <strong>${mockStudioData.name}</strong><br/>
-          📍 ${mockStudioData.address}<br/>
-          📞 ${mockStudioData.phone}<br/>
-          📧 ${mockStudioData.email}<br/>
-          📷 ${mockStudioData.instagram}
-        </div>
-
-        <div class="stats">
-          <div class="stat-card">
-            <div class="stat-number">${sortedAppointments.length}</div>
-            <div class="stat-label">Total Citas</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">${confirmedCount + pendingCount}</div>
-            <div class="stat-label">Pendientes</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">${completedCount}</div>
-            <div class="stat-label">Completadas</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">$${Math.floor(totalRevenue / 1000)}k</div>
-            <div class="stat-label">Facturado</div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha y Hora</th>
-              <th>Cliente</th>
-              <th style="text-align: center;">Estado</th>
-              <th style="text-align: right;">Precio</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${appointmentsHTML}
-          </tbody>
-        </table>
-
-        ${
-          sortedAppointments.length === 0
-            ? '<p style="text-align: center; padding: 40px; color: #999;">No hay citas en este período</p>'
-            : ''
-        }
-
-        <div class="footer">
-          <p><strong>${mockStudioData.name}</strong></p>
-          <p>${mockStudioData.address}</p>
-          <p>${mockStudioData.phone} • ${mockStudioData.email}</p>
-          <p style="margin-top: 8px; font-size: 10px;">
-            Documento generado automáticamente por Tattoo Manager
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  };
-
-  const generateClientsHTML = (): string => {
-    const sortedClients = [...mockClients].sort((a, b) => 
-      b.totalSessions - a.totalSessions
-    );
-
-    const totalClients = sortedClients.length;
-    const activeClients = sortedClients.filter(c => c.totalSessions > 0).length;
-    const totalSessions = sortedClients.reduce((sum, c) => sum + c.totalSessions, 0);
-    
-    // Calcular ingresos totales por cliente
-    const clientRevenue: Record<string, number> = {};
-    mockAppointments.forEach(apt => {
-      if (apt.status === 'completed' && apt.price) {
-        clientRevenue[apt.clientId] = (clientRevenue[apt.clientId] || 0) + apt.price;
-      }
-    });
-
-    const totalRevenue = Object.values(clientRevenue).reduce((sum, val) => sum + val, 0);
-
-    let clientsHTML = '';
-    sortedClients.forEach(client => {
-      const revenue = clientRevenue[client.id] || 0;
-      
-      clientsHTML += `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 12px;">
-            <strong style="font-size: 14px;">${client.fullName}</strong><br/>
-            <span style="color: #666; font-size: 12px;">${client.phone}</span>
-            ${client.email ? `<br/><span style="color: #666; font-size: 12px;">${client.email}</span>` : ''}
-          </td>
-          <td style="padding: 12px; text-align: center;">
-            <strong style="font-size: 16px;">${client.totalSessions}</strong>
-          </td>
-          <td style="padding: 12px; text-align: right; font-weight: 600; color: #059669; font-size: 14px;">
-            $${revenue.toLocaleString()}
-          </td>
-          <td style="padding: 12px; text-align: center; font-size: 12px; color: #666;">
-            ${client.createdAt.toLocaleDateString('es-AR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })}
-          </td>
-        </tr>
-      `;
-    });
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 40px;
-            background: white;
-            color: #000;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #000;
-          }
-          .header h1 { font-size: 32px; margin-bottom: 8px; }
-          .header p { color: #666; font-size: 14px; }
-          .stats {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 32px;
-            gap: 16px;
-          }
-          .stat-card {
-            flex: 1;
-            background: #f9fafb;
-            padding: 16px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid #e5e7eb;
-          }
-          .stat-number {
-            font-size: 28px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 4px;
-          }
-          .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 24px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            overflow: hidden;
-          }
-          thead {
-            background: #f9fafb;
-          }
-          th {
-            padding: 12px;
-            text-align: left;
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #e5e7eb;
-          }
-          .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-            color: #999;
-            font-size: 11px;
-          }
-          .footer p { margin: 4px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${mockStudioData.name}</h1>
-          <p>Base de Datos de Clientes</p>
-          <p style="margin-top: 8px; font-size: 12px;">
-            Generado el ${new Date().toLocaleDateString('es-AR', {
-              day: '2-digit',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </p>
-        </div>
-
-        <div class="stats">
-          <div class="stat-card">
-            <div class="stat-number">${totalClients}</div>
-            <div class="stat-label">Total Clientes</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">${activeClients}</div>
-            <div class="stat-label">Activos</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">${totalSessions}</div>
-            <div class="stat-label">Sesiones</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">$${Math.floor(totalRevenue / 1000)}k</div>
-            <div class="stat-label">Facturado</div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th style="text-align: center;">Sesiones</th>
-              <th style="text-align: right;">Total Gastado</th>
-              <th style="text-align: center;">Desde</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${clientsHTML}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <p><strong>${mockStudioData.name}</strong></p>
-          <p>${mockStudioData.address}</p>
-          <p>${mockStudioData.phone} • ${mockStudioData.email}</p>
-          <p style="margin-top: 8px; font-size: 10px;">
-            Documento confidencial - Uso interno exclusivo
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
-  };
-
   const generatePDF = async () => {
     setIsGenerating(true);
 
+    // TODO: En producción, descomentar esto y instalar react-native-html-to-pdf
+    /*
     try {
       const htmlContent = exportType === 'agenda' 
-        ? generateAgendaHTML(getAppointmentsByPeriod(selectedPeriod))
+        ? generateAgendaHTML()
         : generateClientsHTML();
 
-      // ========== PRODUCCIÓN: Genera PDF real ==========
-      // Descomenta esto cuando instales react-native-html-to-pdf
-      /*
       const options = {
         html: htmlContent,
         fileName: `${exportType === 'agenda' ? 'Agenda' : 'Clientes'}_${selectedPeriod}_${Date.now()}`,
@@ -503,7 +119,6 @@ export default function ExportPDFScreen({ navigation }: Props) {
 
       const file = await RNHTMLtoPDF.convert(options);
       
-      // Compartir el PDF
       await Share.open({
         url: `file://${file.filePath}`,
         type: 'application/pdf',
@@ -511,29 +126,25 @@ export default function ExportPDFScreen({ navigation }: Props) {
       });
 
       Alert.alert('✅ PDF Generado', `Archivo guardado en: ${file.filePath}`);
-      */
-
-      // ========== DESARROLLO: Simulación ==========
-      setTimeout(() => {
-        const count = exportType === 'agenda' 
-          ? getAppointmentsByPeriod(selectedPeriod).length
-          : mockClients.length;
-        
-        Alert.alert(
-          '✅ PDF Generado',
-          `Se exportaron ${count} ${exportType === 'agenda' ? 'citas' : 'clientes'} correctamente.\n\nEn producción, el archivo PDF se guardaría y se podría compartir.`,
-          [
-            { text: 'OK' },
-          ]
-        );
-        setIsGenerating(false);
-      }, 2000);
-
     } catch (error) {
       console.error('Error generando PDF:', error);
       Alert.alert('Error', 'No se pudo generar el PDF');
-      setIsGenerating(false);
     }
+    */
+
+    // SIMULACIÓN para desarrollo
+    setTimeout(() => {
+      const count = exportType === 'agenda' 
+        ? getAppointmentsByPeriod(selectedPeriod).length
+        : clients.length;
+      
+      Alert.alert(
+        '✅ PDF Generado (Simulación)',
+        `Se exportarían ${count} ${exportType === 'agenda' ? 'citas' : 'clientes'}.\n\n📝 Para producción:\n1. Instalar: react-native-html-to-pdf\n2. Instalar: react-native-share\n3. Descomentar código en ExportPDFScreen.tsx`,
+        [{ text: 'OK' }]
+      );
+      setIsGenerating(false);
+    }, 2000);
   };
 
   const periods = [
@@ -547,6 +158,34 @@ export default function ExportPDFScreen({ navigation }: Props) {
   const totalRevenue = selectedAppointments
     .filter(apt => apt.status === 'completed')
     .reduce((sum, apt) => sum + (apt.price || 0), 0);
+
+  // Calcular stats de clientes
+  const clientRevenue: Record<string, number> = {};
+  appointments.forEach(apt => {
+    if (apt.status === 'completed' && apt.price) {
+      clientRevenue[apt.clientId] = (clientRevenue[apt.clientId] || 0) + apt.price;
+    }
+  });
+  const totalClientRevenue = Object.values(clientRevenue).reduce((sum, val) => sum + val, 0);
+  const totalSessions = clients.reduce((sum, c) => sum + c.totalSessions, 0);
+
+  if (loading) {
+    return (
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>‹ Atrás</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Exportar a PDF</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Cargando datos...</Text>
+        </View>
+      </SafeScreen>
+    );
+  }
 
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
@@ -679,19 +318,17 @@ export default function ExportPDFScreen({ navigation }: Props) {
             ) : (
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{mockClients.length}</Text>
+                  <Text style={styles.statNumber}>{clients.length}</Text>
                   <Text style={styles.statLabel}>Clientes</Text>
                 </View>
                 <View style={styles.statItem}>
                   <Text style={styles.statNumber}>
-                    {mockClients.filter(c => c.totalSessions > 0).length}
+                    {clients.filter(c => c.totalSessions > 0).length}
                   </Text>
                   <Text style={styles.statLabel}>Activos</Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>
-                    {mockClients.reduce((sum, c) => sum + c.totalSessions, 0)}
-                  </Text>
+                  <Text style={styles.statNumber}>{totalSessions}</Text>
                   <Text style={styles.statLabel}>Sesiones</Text>
                 </View>
               </View>
@@ -722,7 +359,7 @@ export default function ExportPDFScreen({ navigation }: Props) {
 
         {/* Botón generar */}
         <TouchableOpacity
-          style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
+          style={[styles.generateButton, (isGenerating || (exportType === 'agenda' && selectedAppointments.length === 0)) && styles.generateButtonDisabled]}
           onPress={generatePDF}
           disabled={isGenerating || (exportType === 'agenda' && selectedAppointments.length === 0)}
         >
@@ -748,6 +385,17 @@ export default function ExportPDFScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

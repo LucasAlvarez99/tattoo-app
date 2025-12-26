@@ -1,17 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { mockAppointments, Appointment } from '../lib/mockData';
+import { useFocusEffect } from '@react-navigation/native';
+import { getAllAppointments, getAppointmentsByDate } from '../lib/appointmentService';
+import { Appointment } from '../lib/types';
 import SafeScreen from '../components/SafeScreen';
 
 export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'list'>('month');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAppointments();
+    }, [])
+  );
+
+  const loadAppointments = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllAppointments();
+      setAppointments(data);
+    } catch (error) {
+      console.error('Error cargando citas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAppointments();
+    setRefreshing(false);
+  };
 
   // Obtener días del mes
   const getDaysInMonth = (date: Date) => {
@@ -41,7 +72,7 @@ export default function CalendarScreen() {
   const getAppointmentsForDate = (date: Date | null) => {
     if (!date) return [];
     
-    return mockAppointments.filter(apt => {
+    return appointments.filter(apt => {
       const aptDate = new Date(apt.date);
       return (
         aptDate.getDate() === date.getDate() &&
@@ -62,7 +93,7 @@ export default function CalendarScreen() {
   const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
   // Agrupar citas por fecha para vista de lista
-  const appointmentsByDate = mockAppointments.reduce((acc, apt) => {
+  const appointmentsByDate = appointments.reduce((acc, apt) => {
     const dateKey = new Date(apt.date).toDateString();
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(apt);
@@ -99,7 +130,7 @@ export default function CalendarScreen() {
       return <View key={`empty-${index}`} style={styles.dayCell} />;
     }
 
-    const appointments = getAppointmentsForDate(day);
+    const dayAppointments = getAppointmentsForDate(day);
     const isToday = 
       day.getDate() === new Date().getDate() &&
       day.getMonth() === new Date().getMonth() &&
@@ -111,10 +142,10 @@ export default function CalendarScreen() {
         style={[
           styles.dayCell,
           isToday && styles.todayCell,
-          appointments.length > 0 && styles.dayCellWithAppointments,
+          dayAppointments.length > 0 && styles.dayCellWithAppointments,
         ]}
         onPress={() => {
-          if (appointments.length > 0) {
+          if (dayAppointments.length > 0) {
             setSelectedDate(day);
             setView('list');
           }
@@ -123,13 +154,13 @@ export default function CalendarScreen() {
         <Text style={[
           styles.dayNumber,
           isToday && styles.todayNumber,
-          appointments.length > 0 && styles.dayNumberWithAppointments,
+          dayAppointments.length > 0 && styles.dayNumberWithAppointments,
         ]}>
           {day.getDate()}
         </Text>
-        {appointments.length > 0 && (
+        {dayAppointments.length > 0 && (
           <View style={styles.appointmentDots}>
-            {appointments.slice(0, 3).map((apt) => (
+            {dayAppointments.slice(0, 3).map((apt) => (
               <View 
                 key={apt.id} 
                 style={[
@@ -146,7 +177,7 @@ export default function CalendarScreen() {
 
   const renderDateSection = (dateKey: string) => {
     const date = new Date(dateKey);
-    const appointments = appointmentsByDate[dateKey];
+    const dateAppointments = appointmentsByDate[dateKey];
 
     return (
       <View key={dateKey} style={styles.dateSection}>
@@ -162,10 +193,24 @@ export default function CalendarScreen() {
             })}
           </Text>
         </View>
-        {appointments.map(apt => renderAppointment(apt))}
+        {dateAppointments.map(apt => renderAppointment(apt))}
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Agenda</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Cargando agenda...</Text>
+        </View>
+      </SafeScreen>
+    );
+  }
 
   return (
     <SafeScreen edges={['top', 'left', 'right']}>
@@ -220,7 +265,13 @@ export default function CalendarScreen() {
           </View>
 
           {/* Calendario */}
-          <ScrollView style={styles.calendarScroll} contentContainerStyle={styles.calendarContent}>
+          <ScrollView 
+            style={styles.calendarScroll} 
+            contentContainerStyle={styles.calendarContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
             <View style={styles.daysGrid}>
               {days.map((day, index) => renderDay(day, index))}
             </View>
@@ -244,6 +295,9 @@ export default function CalendarScreen() {
           <ScrollView 
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           >
             {sortedDates.map(dateKey => renderDateSection(dateKey))}
             
@@ -264,6 +318,17 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

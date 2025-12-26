@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,13 +10,15 @@ import {
   StyleSheet,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import {
-  mockMessageTemplates,
-  mockStudioData,
+  getAllTemplates,
+  updateTemplate,
+  formatMessage,
   MessageTemplate,
-  formatMessageTemplate,
-} from '../../lib/mockData';
+} from '../../lib/messageTemplateService';
+import { getStudioData } from '../../lib/studioService';
 import SafeScreen from '../SafeScreen';
 
 interface MessagesModalProps {
@@ -25,48 +27,87 @@ interface MessagesModalProps {
 }
 
 export default function MessagesModal({ visible, onClose }: MessagesModalProps) {
-  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(mockMessageTemplates);
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleTestMessage = (template: MessageTemplate) => {
-    const sampleData = {
-      nombre: 'Juan Pérez',
-      fecha: '15 de octubre',
-      hora: '14:00',
-      precio: 25000,
-      estudio: mockStudioData.name,
-      direccion: mockStudioData.address,
-    };
+  useEffect(() => {
+    if (visible) {
+      loadTemplates();
+    }
+  }, [visible]);
 
-    const message = formatMessageTemplate(template.message, sampleData);
-    
-    Alert.alert(
-      '📱 Vista previa del mensaje',
-      message,
-      [
-        { text: 'Cerrar', style: 'cancel' },
-        {
-          text: 'Enviar por WhatsApp',
-          onPress: () => {
-            const phone = '+5491112345678';
-            const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
-            Linking.openURL(url).catch(() => {
-              Alert.alert('Error', 'No se pudo abrir WhatsApp');
-            });
-          },
-        },
-      ]
-    );
+  const loadTemplates = async () => {
+    setLoading(true);
+    try {
+      const templates = await getAllTemplates();
+      setMessageTemplates(templates);
+    } catch (error) {
+      console.error('Error cargando plantillas:', error);
+      Alert.alert('Error', 'No se pudieron cargar las plantillas');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveTemplate = () => {
+  const handleTestMessage = async (template: MessageTemplate) => {
+    try {
+      const studioData = await getStudioData();
+      const sampleData = {
+        nombre: 'Juan Pérez',
+        fecha: '15 de octubre',
+        hora: '14:00',
+        precio: 25000,
+        estudio: studioData?.name || 'Mi Estudio',
+        direccion: studioData?.address || 'Dirección del estudio',
+      };
+
+      const message = formatMessage(template.message, sampleData);
+      
+      Alert.alert(
+        '📱 Vista previa del mensaje',
+        message,
+        [
+          { text: 'Cerrar', style: 'cancel' },
+          {
+            text: 'Enviar por WhatsApp',
+            onPress: () => {
+              const phone = '+5491112345678';
+              const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+              Linking.openURL(url).catch(() => {
+                Alert.alert('Error', 'No se pudo abrir WhatsApp');
+              });
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error mostrando preview:', error);
+      Alert.alert('Error', 'No se pudo generar el preview');
+    }
+  };
+
+  const handleSaveTemplate = async () => {
     if (!editingTemplate) return;
     
-    setMessageTemplates(templates => 
-      templates.map(t => t.id === editingTemplate.id ? editingTemplate : t)
-    );
-    setEditingTemplate(null);
-    Alert.alert('✅ Plantilla guardada', 'El mensaje se actualizó correctamente');
+    if (!editingTemplate.message.trim()) {
+      Alert.alert('Error', 'El mensaje no puede estar vacío');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateTemplate(editingTemplate.id, editingTemplate);
+      await loadTemplates();
+      setEditingTemplate(null);
+      Alert.alert('✅ Plantilla guardada', 'El mensaje se actualizó correctamente');
+    } catch (error) {
+      console.error('Error guardando plantilla:', error);
+      Alert.alert('Error', 'No se pudo guardar la plantilla');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleChannel = (channel: 'whatsapp' | 'email' | 'instagram') => {
@@ -77,6 +118,16 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
       : [...editingTemplate.channels, channel];
     
     setEditingTemplate({ ...editingTemplate, channels });
+  };
+
+  const handleToggleEnabled = async (templateId: string, currentState: boolean) => {
+    try {
+      await updateTemplate(templateId, { enabled: !currentState });
+      await loadTemplates();
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      Alert.alert('Error', 'No se pudo actualizar el estado');
+    }
   };
 
   return (
@@ -96,64 +147,65 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
             <View style={{ width: 60 }} />
           </View>
 
-          <ScrollView style={styles.modalScroll}>
-            <View style={styles.modalContent}>
-              <View style={styles.infoBox}>
-                <Text style={styles.infoIcon}>💬</Text>
-                <Text style={styles.infoText}>
-                  Los mensajes se envían automáticamente según la configuración. Podés usar variables: {'{nombre}'}, {'{fecha}'}, {'{hora}'}, {'{precio}'}, {'{estudio}'}
-                </Text>
-              </View>
-
-              {messageTemplates.map(template => (
-                <View key={template.id} style={styles.templateCard}>
-                  <View style={styles.templateHeader}>
-                    <View style={styles.templateInfo}>
-                      <Text style={styles.templateName}>{template.name}</Text>
-                      <View style={styles.templateChannels}>
-                        {template.channels.includes('whatsapp') && (
-                          <Text style={styles.channelBadge}>📱 WhatsApp</Text>
-                        )}
-                        {template.channels.includes('email') && (
-                          <Text style={styles.channelBadge}>📧 Email</Text>
-                        )}
-                        {template.channels.includes('instagram') && (
-                          <Text style={styles.channelBadge}>📷 Instagram</Text>
-                        )}
-                      </View>
-                    </View>
-                    <Switch
-                      value={template.enabled}
-                      onValueChange={(value) => {
-                        setMessageTemplates(templates =>
-                          templates.map(t =>
-                            t.id === template.id ? { ...t, enabled: value } : t
-                          )
-                        );
-                      }}
-                    />
-                  </View>
-                  
-                  <Text style={styles.templateMessage}>{template.message}</Text>
-                  
-                  <View style={styles.templateActions}>
-                    <TouchableOpacity
-                      style={styles.templateButton}
-                      onPress={() => setEditingTemplate(template)}
-                    >
-                      <Text style={styles.templateButtonText}>✏️ Editar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.templateButton}
-                      onPress={() => handleTestMessage(template)}
-                    >
-                      <Text style={styles.templateButtonText}>👁️ Vista previa</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={styles.loadingText}>Cargando plantillas...</Text>
             </View>
-          </ScrollView>
+          ) : (
+            <ScrollView style={styles.modalScroll}>
+              <View style={styles.modalContent}>
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoIcon}>💬</Text>
+                  <Text style={styles.infoText}>
+                    Los mensajes se envían automáticamente según la configuración. Podés usar variables: {'{nombre}'}, {'{fecha}'}, {'{hora}'}, {'{precio}'}, {'{estudio}'}
+                  </Text>
+                </View>
+
+                {messageTemplates.map(template => (
+                  <View key={template.id} style={styles.templateCard}>
+                    <View style={styles.templateHeader}>
+                      <View style={styles.templateInfo}>
+                        <Text style={styles.templateName}>{template.name}</Text>
+                        <View style={styles.templateChannels}>
+                          {template.channels.includes('whatsapp') && (
+                            <Text style={styles.channelBadge}>📱 WhatsApp</Text>
+                          )}
+                          {template.channels.includes('email') && (
+                            <Text style={styles.channelBadge}>📧 Email</Text>
+                          )}
+                          {template.channels.includes('instagram') && (
+                            <Text style={styles.channelBadge}>📷 Instagram</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Switch
+                        value={template.enabled}
+                        onValueChange={() => handleToggleEnabled(template.id, template.enabled)}
+                      />
+                    </View>
+                    
+                    <Text style={styles.templateMessage}>{template.message}</Text>
+                    
+                    <View style={styles.templateActions}>
+                      <TouchableOpacity
+                        style={styles.templateButton}
+                        onPress={() => setEditingTemplate(template)}
+                      >
+                        <Text style={styles.templateButtonText}>✏️ Editar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.templateButton}
+                        onPress={() => handleTestMessage(template)}
+                      >
+                        <Text style={styles.templateButtonText}>👁️ Vista previa</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
         </SafeScreen>
       </Modal>
 
@@ -161,16 +213,20 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
       <Modal
         visible={editingTemplate !== null}
         animationType="slide"
-        onRequestClose={() => setEditingTemplate(null)}
+        onRequestClose={() => !saving && setEditingTemplate(null)}
       >
         <SafeScreen>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setEditingTemplate(null)}>
+            <TouchableOpacity onPress={() => !saving && setEditingTemplate(null)} disabled={saving}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Editar Mensaje</Text>
-            <TouchableOpacity onPress={handleSaveTemplate}>
-              <Text style={styles.modalSave}>Guardar</Text>
+            <TouchableOpacity onPress={handleSaveTemplate} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator color="#059669" />
+              ) : (
+                <Text style={styles.modalSave}>Guardar</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -188,6 +244,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                     multiline
                     numberOfLines={6}
                     textAlignVertical="top"
+                    editable={!saving}
                   />
 
                   <Text style={styles.inputLabel}>Variables disponibles:</Text>
@@ -202,6 +259,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                             message: editingTemplate.message + ' ' + variable,
                           });
                         }}
+                        disabled={saving}
                       >
                         <Text style={styles.variableChipText}>{variable}</Text>
                       </TouchableOpacity>
@@ -216,6 +274,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                         editingTemplate.channels.includes('whatsapp') && styles.channelOptionActive,
                       ]}
                       onPress={() => toggleChannel('whatsapp')}
+                      disabled={saving}
                     >
                       <Text style={styles.channelOptionIcon}>📱</Text>
                       <Text style={[
@@ -232,6 +291,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                         editingTemplate.channels.includes('email') && styles.channelOptionActive,
                       ]}
                       onPress={() => toggleChannel('email')}
+                      disabled={saving}
                     >
                       <Text style={styles.channelOptionIcon}>📧</Text>
                       <Text style={[
@@ -248,6 +308,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                         editingTemplate.channels.includes('instagram') && styles.channelOptionActive,
                       ]}
                       onPress={() => toggleChannel('instagram')}
+                      disabled={saving}
                     >
                       <Text style={styles.channelOptionIcon}>📷</Text>
                       <Text style={[
@@ -262,6 +323,7 @@ export default function MessagesModal({ visible, onClose }: MessagesModalProps) 
                   <TouchableOpacity
                     style={styles.testMessageButton}
                     onPress={() => handleTestMessage(editingTemplate)}
+                    disabled={saving}
                   >
                     <Text style={styles.testMessageButtonText}>
                       👁️ Ver cómo se verá el mensaje
@@ -311,6 +373,17 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   infoBox: {
     flexDirection: 'row',

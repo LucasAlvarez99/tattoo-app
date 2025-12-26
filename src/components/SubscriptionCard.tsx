@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { User } from '../lib/mockAuth';
+import { User } from '../lib/defaultData';
 
 interface SubscriptionCardProps {
   user: User | null;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   ScrollView,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import { mockClients, mockAppointments, Client, Appointment } from '../lib/mockData';
+import { getClientById, ExtendedClient } from '../lib/clientService';
+import { getAppointmentsByClient } from '../lib/appointmentService';
+import { Appointment } from '../lib/types';
 import SafeScreen from '../components/SafeScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientDetail'>;
@@ -18,11 +22,43 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ClientDetail'>;
 export default function ClientDetailScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
   
-  // En producción, esto vendría de tu base de datos
-  const client = mockClients.find(c => c.id === clientId);
-  const clientAppointments = mockAppointments.filter(a => a.clientId === clientId);
-  
+  const [client, setClient] = useState<ExtendedClient | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'info' | 'history'>('info');
+
+  useFocusEffect(
+    useCallback(() => {
+      loadClientData();
+    }, [clientId])
+  );
+
+  const loadClientData = async () => {
+    setLoading(true);
+    try {
+      const clientData = await getClientById(clientId);
+      const appointmentsData = await getAppointmentsByClient(clientId);
+      
+      setClient(clientData);
+      setAppointments(appointmentsData);
+    } catch (error) {
+      console.error('Error cargando datos del cliente:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos del cliente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeScreen>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Cargando cliente...</Text>
+        </View>
+      </SafeScreen>
+    );
+  }
 
   if (!client) {
     return (
@@ -70,15 +106,15 @@ export default function ClientDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const totalSpent = clientAppointments
+  const totalSpent = appointments
     .filter(a => a.status === 'completed')
     .reduce((sum, a) => sum + (a.price || 0), 0);
 
-  const upcomingAppointments = clientAppointments.filter(
+  const upcomingAppointments = appointments.filter(
     a => new Date(a.date) > new Date() && a.status !== 'cancelled'
   );
 
-  const completedSessions = clientAppointments.filter(
+  const completedSessions = appointments.filter(
     a => a.status === 'completed'
   ).length;
 
@@ -164,7 +200,7 @@ export default function ClientDetailScreen({ route, navigation }: Props) {
         </View>
         <Text style={styles.clientName}>{client.fullName}</Text>
         <Text style={styles.clientSince}>
-          Cliente desde {client.createdAt.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+          Cliente desde {new Date(client.createdAt).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
         </Text>
       </View>
 
@@ -226,7 +262,7 @@ export default function ClientDetailScreen({ route, navigation }: Props) {
           onPress={() => setActiveTab('history')}
         >
           <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-            Historial ({clientAppointments.length})
+            Historial ({appointments.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -281,12 +317,12 @@ export default function ClientDetailScreen({ route, navigation }: Props) {
           </View>
         ) : (
           <View>
-            {clientAppointments.length > 0 ? (
+            {appointments.length > 0 ? (
               <>
                 <Text style={styles.historyTitle}>
-                  {clientAppointments.length} {clientAppointments.length === 1 ? 'cita' : 'citas'} en total
+                  {appointments.length} {appointments.length === 1 ? 'cita' : 'citas'} en total
                 </Text>
-                {clientAppointments
+                {appointments
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map(apt => renderAppointment(apt))}
               </>
@@ -307,6 +343,17 @@ export default function ClientDetailScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

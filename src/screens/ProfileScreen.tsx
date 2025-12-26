@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, TabParamList } from '../types/navigation';
 import { localAuth } from '../lib/localAuthService';
-import { mockStudioData, mockPriceCategories, mockMessageTemplates } from '../lib/mockData';
+import { getAllCategories } from '../lib/priceService';
+import { getEnabledTemplates } from '../lib/messageTemplateService';
 import SafeScreen from '../components/SafeScreen';
 import ProfileHeader from '../components/ProfileHeader';
 import SubscriptionCard from '../components/SubscriptionCard';
@@ -27,6 +28,29 @@ type ModalType = 'none' | 'studio' | 'messages';
 export default function ProfileScreen({ navigation }: Props) {
   const user = localAuth.getUser();
   const [activeModal, setActiveModal] = useState<ModalType>('none');
+  const [activePricesCount, setActivePricesCount] = useState(0);
+  const [enabledTemplatesCount, setEnabledTemplatesCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [])
+  );
+
+  const loadStats = async () => {
+    try {
+      const categories = await getAllCategories();
+      const activeCount = categories.reduce((sum, cat) => 
+        sum + cat.items.filter(i => i.isActive).length, 0
+      );
+      setActivePricesCount(activeCount);
+
+      const templates = await getEnabledTemplates();
+      setEnabledTemplatesCount(templates.length);
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -55,29 +79,27 @@ export default function ProfileScreen({ navigation }: Props) {
           <ProfileMenuItem
             icon="🏢"
             title="Datos del estudio"
-            subtitle={`${mockStudioData.name} • ${mockStudioData.address}`}
+            subtitle="Nombre, dirección, horarios"
             onPress={() => setActiveModal('studio')}
           />
           <ProfileMenuItem
             icon="💵"
             title="Lista de precios"
             subtitle="Gestionar precios y categorías"
-            badge={mockPriceCategories.reduce((sum, cat) => 
-              sum + cat.items.filter(i => i.isActive).length, 0
-            )}
+            badge={activePricesCount}
             onPress={() => navigation.navigate('PriceManagement')}
           />
           <ProfileMenuItem
             icon="💬"
             title="Mensajes automáticos"
             subtitle="Gestionar envíos automáticos"
-            badge={mockMessageTemplates.filter(t => t.enabled).length}
             onPress={() => navigation.navigate('NotificationManagement')}
           />
           <ProfileMenuItem
             icon="📝"
             title="Plantillas de mensajes"
             subtitle="Editar textos de recordatorios"
+            badge={enabledTemplatesCount}
             onPress={() => setActiveModal('messages')}
           />
           <ProfileMenuItem
@@ -147,12 +169,18 @@ export default function ProfileScreen({ navigation }: Props) {
       {/* Modales */}
       <StudioDataModal
         visible={activeModal === 'studio'}
-        onClose={() => setActiveModal('none')}
+        onClose={() => {
+          setActiveModal('none');
+          loadStats();
+        }}
       />
 
       <MessagesModal
         visible={activeModal === 'messages'}
-        onClose={() => setActiveModal('none')}
+        onClose={() => {
+          setActiveModal('none');
+          loadStats();
+        }}
       />
     </SafeScreen>
   );
@@ -182,4 +210,4 @@ const styles = StyleSheet.create({
     color: '#999',
     paddingVertical: 24,
   },
-});
+}); 
